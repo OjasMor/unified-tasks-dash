@@ -13,9 +13,10 @@ interface CalendarColumnProps {
   events: CalendarEvent[];
   isConnected: boolean;
   onConnect: () => void;
+  isLoading?: boolean;
 }
 
-export function CalendarColumn({ events, isConnected, onConnect }: CalendarColumnProps) {
+export function CalendarColumn({ events, isConnected, onConnect, isLoading = false }: CalendarColumnProps) {
   if (!isConnected) {
     return (
       <div className="space-y-4">
@@ -32,9 +33,14 @@ export function CalendarColumn({ events, isConnected, onConnect }: CalendarColum
           <p className="text-sm text-muted-foreground mb-4">
             See your daily schedule alongside your tasks for better planning.
           </p>
-          <Button variant="default" onClick={onConnect} className="gap-2">
+          <Button 
+            variant="default" 
+            onClick={onConnect} 
+            className="gap-2"
+            disabled={isLoading}
+          >
             <Calendar className="h-4 w-4" />
-            Connect Google Calendar
+            {isLoading ? 'Connecting...' : 'Connect Google Calendar'}
           </Button>
         </div>
       </div>
