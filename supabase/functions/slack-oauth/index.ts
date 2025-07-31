@@ -52,6 +52,43 @@ interface SlackOAuthResponse {
   error?: string;
 }
 
+interface SlackChannelHistoryResponse {
+  ok: boolean;
+  messages?: Array<{
+    type: string;
+    user: string;
+    text: string;
+    ts: string;
+    permalink?: string;
+  }>;
+  error?: string;
+}
+
+interface SlackChannelsResponse {
+  ok: boolean;
+  channels?: Array<{
+    id: string;
+    name: string;
+    is_channel: boolean;
+    is_private: boolean;
+    is_archived: boolean;
+    num_members: number;
+    topic?: {
+      value: string;
+    };
+    purpose?: {
+      value: string;
+    };
+    last_read?: string;
+    latest?: {
+      text: string;
+      ts: string;
+      user: string;
+    };
+  }>;
+  error?: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -64,7 +101,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { action, userId, code, state } = await req.json()
+    const { action, userId, code, state, channelId } = await req.json()
 
     if (action === 'initiate_oauth') {
       // Generate OAuth URL for Slack
@@ -169,6 +206,185 @@ serve(async (req) => {
           message: 'Slack connected successfully',
           team_id: tokenData.team_id,
           team_name: tokenData.team_name
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      )
+    }
+
+    if (action === 'fetch_channels') {
+      // Get user's Slack tokens
+      const { data: slackInfo, error: slackError } = await supabaseClient
+        .from('slack_oauth_tokens')
+        .select('access_token, slack_user_id, slack_team_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (slackError || !slackInfo) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'No Slack connection found. Please connect your Slack account first.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400 
+          }
+        )
+      }
+
+      // Fetch channels from Slack API
+      const channelsUrl = `https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=1000`;
+      
+      const channelsResponse = await fetch(channelsUrl, {
+        headers: {
+          'Authorization': `Bearer ${slackInfo.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const channelsData: SlackChannelsResponse = await channelsResponse.json();
+
+      if (!channelsData.ok) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Slack API error: ${channelsData.error}` 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400 
+          }
+        )
+      }
+
+      const channels = channelsData.channels || [];
+
+      // Store channels in database
+      const channelsToInsert = channels.map(channel => ({
+        user_id: userId,
+        slack_team_id: slackInfo.slack_team_id,
+        conversation_id: channel.id,
+        conversation_type: channel.is_private ? 'private_channel' : 'public_channel',
+        conversation_name: channel.name,
+        conversation_topic: channel.topic?.value,
+        conversation_purpose: channel.purpose?.value,
+        member_count: channel.num_members,
+        is_archived: channel.is_archived,
+        last_message_ts: channel.latest?.ts,
+        last_message_text: channel.latest?.text,
+        is_member: true
+      }));
+
+      if (channelsToInsert.length > 0) {
+        const { error: insertError } = await supabaseClient
+          .from('slack_conversations')
+          .upsert(channelsToInsert, { 
+            onConflict: 'slack_team_id,conversation_id'
+          })
+
+        if (insertError) {
+          console.error('Error inserting channels:', insertError)
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          channels: channelsToInsert,
+          count: channelsToInsert.length
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      )
+    }
+
+    if (action === 'fetch_messages') {
+      // Get user's Slack tokens
+      const { data: slackInfo, error: slackError } = await supabaseClient
+        .from('slack_oauth_tokens')
+        .select('access_token, slack_user_id, slack_team_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (slackError || !slackInfo) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'No Slack connection found. Please connect your Slack account first.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400 
+          }
+        )
+      }
+
+      // Fetch messages from Slack API for the specific channel
+      const historyUrl = `https://slack.com/api/conversations.history?channel=${channelId}&limit=50`;
+      
+      const historyResponse = await fetch(historyUrl, {
+        headers: {
+          'Authorization': `Bearer ${slackInfo.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const historyData: SlackChannelHistoryResponse = await historyResponse.json();
+
+      if (!historyData.ok) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Slack API error: ${historyData.error}` 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400 
+          }
+        )
+      }
+
+      const messages = historyData.messages || [];
+
+      // Get user info for each message
+      const messagesWithUserInfo = await Promise.all(
+        messages.map(async (message) => {
+          // Fetch user info to get username
+          const userResponse = await fetch(`https://slack.com/api/users.info?user=${message.user}`, {
+            headers: {
+              'Authorization': `Bearer ${slackInfo.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const userData: SlackUserInfo = await userResponse.json();
+          const username = userData.user?.profile?.display_name || 
+                         userData.user?.profile?.real_name || 
+                         userData.user?.name || 
+                         'Unknown User';
+
+          return {
+            id: `${channelId}-${message.ts}`,
+            message_ts: message.ts,
+            text: message.text,
+            username: username,
+            user_image: userData.user?.profile?.image_72,
+            slack_created_at: new Date(parseFloat(message.ts) * 1000).toISOString(),
+            user_slack_id: message.user
+          };
+        })
+      );
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          messages: messagesWithUserInfo,
+          count: messagesWithUserInfo.length
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
