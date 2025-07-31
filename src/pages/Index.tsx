@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ToDoColumn } from "@/components/ToDoColumn";
 import { CalendarColumn } from "@/components/CalendarColumn";
 import { SlackColumn } from "@/components/SlackColumn";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { ToDo } from "@/components/ToDoCard";
 import { useToast } from "@/hooks/use-toast";
 
@@ -59,6 +62,8 @@ const sampleSlackMentions = [
 ];
 
 const Index = () => {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
   const [todos, setTodos] = useState<ToDo[]>([
     {
       id: "1",
@@ -84,6 +89,24 @@ const Index = () => {
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isSlackConnected, setIsSlackConnected] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const handleAddTodo = (task: {
     title: string;
