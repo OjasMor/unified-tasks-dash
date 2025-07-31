@@ -90,26 +90,44 @@ interface SlackChannelsResponse {
 }
 
 serve(async (req) => {
+  console.log('🚀 Slack OAuth Edge Function called');
+  console.log('📝 Request method:', req.method);
+  console.log('📝 Request URL:', req.url);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight request handled');
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    console.log('🔧 Creating Supabase client...');
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    console.log('✅ Supabase client created');
 
     const { action, userId, code, state, channelId } = await req.json()
+    console.log('📥 Request payload:', { action, userId, channelId, hasCode: !!code, hasState: !!state });
 
     if (action === 'initiate_oauth') {
+      console.log('🔄 Initiating OAuth flow for user:', userId);
+      
       // Generate OAuth URL for Slack
       const clientId = Deno.env.get('SLACK_CLIENT_ID');
       const redirectUri = Deno.env.get('SLACK_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/slack-oauth`;
       const scopes = 'search:read,users:read,channels:read,groups:read,im:read,mpim:read';
       
+      console.log('🔧 OAuth configuration:', { 
+        clientId: clientId ? '***' : 'MISSING', 
+        redirectUri, 
+        scopes 
+      });
+      
       const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${userId}`;
+      
+      console.log('✅ OAuth URL generated:', oauthUrl);
       
       return new Response(
         JSON.stringify({ 
@@ -125,8 +143,11 @@ serve(async (req) => {
     }
 
     if (action === 'handle_callback') {
+      console.log('🔄 Handling OAuth callback');
+      
       // Handle OAuth callback from Slack
       if (!code || !state) {
+        console.error('❌ Missing required parameters:', { hasCode: !!code, hasState: !!state });
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -139,9 +160,16 @@ serve(async (req) => {
         )
       }
 
+      console.log('🔧 Exchanging code for access token...');
       const clientId = Deno.env.get('SLACK_CLIENT_ID');
       const clientSecret = Deno.env.get('SLACK_CLIENT_SECRET');
       const redirectUri = Deno.env.get('SLACK_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/slack-oauth`;
+
+      console.log('🔧 Token exchange configuration:', { 
+        clientId: clientId ? '***' : 'MISSING', 
+        clientSecret: clientSecret ? '***' : 'MISSING', 
+        redirectUri 
+      });
 
       // Exchange code for access token
       const tokenResponse = await fetch('https://slack.com/api/oauth.v2.access', {
@@ -158,8 +186,16 @@ serve(async (req) => {
       });
 
       const tokenData: SlackOAuthResponse = await tokenResponse.json();
+      console.log('📥 Slack OAuth response:', { 
+        ok: tokenData.ok, 
+        hasAccessToken: !!tokenData.access_token,
+        teamId: tokenData.team_id,
+        userId: tokenData.user_id,
+        error: tokenData.error 
+      });
 
       if (!tokenData.ok || !tokenData.access_token) {
+        console.error('❌ Slack OAuth failed:', tokenData.error);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -172,6 +208,7 @@ serve(async (req) => {
         )
       }
 
+      console.log('💾 Storing tokens in database...');
       // Store the tokens in database
       const { error: insertError } = await supabaseClient
         .from('slack_oauth_tokens')
@@ -187,7 +224,7 @@ serve(async (req) => {
         });
 
       if (insertError) {
-        console.error('Error storing tokens:', insertError);
+        console.error('❌ Error storing tokens:', insertError);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -200,6 +237,7 @@ serve(async (req) => {
         )
       }
 
+      console.log('✅ Tokens stored successfully');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -215,6 +253,8 @@ serve(async (req) => {
     }
 
     if (action === 'fetch_channels') {
+      console.log('🔄 Fetching channels for user:', userId);
+      
       // Get user's Slack tokens
       const { data: slackInfo, error: slackError } = await supabaseClient
         .from('slack_oauth_tokens')
@@ -223,6 +263,7 @@ serve(async (req) => {
         .single()
 
       if (slackError || !slackInfo) {
+        console.error('❌ No Slack connection found for user:', userId);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -235,8 +276,14 @@ serve(async (req) => {
         )
       }
 
+      console.log('✅ Found Slack connection for user:', { 
+        slackUserId: slackInfo.slack_user_id, 
+        teamId: slackInfo.slack_team_id 
+      });
+
       // Fetch channels from Slack API
       const channelsUrl = `https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=1000`;
+      console.log('🌐 Fetching channels from Slack API:', channelsUrl);
       
       const channelsResponse = await fetch(channelsUrl, {
         headers: {
@@ -246,8 +293,14 @@ serve(async (req) => {
       });
 
       const channelsData: SlackChannelsResponse = await channelsResponse.json();
+      console.log('📥 Slack channels response:', { 
+        ok: channelsData.ok, 
+        channelCount: channelsData.channels?.length || 0,
+        error: channelsData.error 
+      });
 
       if (!channelsData.ok) {
+        console.error('❌ Slack API error:', channelsData.error);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -261,6 +314,7 @@ serve(async (req) => {
       }
 
       const channels = channelsData.channels || [];
+      console.log('📊 Processing', channels.length, 'channels');
 
       // Store channels in database
       const channelsToInsert = channels.map(channel => ({
@@ -279,6 +333,7 @@ serve(async (req) => {
       }));
 
       if (channelsToInsert.length > 0) {
+        console.log('💾 Storing', channelsToInsert.length, 'channels in database...');
         const { error: insertError } = await supabaseClient
           .from('slack_conversations')
           .upsert(channelsToInsert, { 
@@ -286,10 +341,13 @@ serve(async (req) => {
           })
 
         if (insertError) {
-          console.error('Error inserting channels:', insertError)
+          console.error('❌ Error inserting channels:', insertError)
+        } else {
+          console.log('✅ Channels stored successfully');
         }
       }
 
+      console.log('✅ Returning', channelsToInsert.length, 'channels');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -304,6 +362,8 @@ serve(async (req) => {
     }
 
     if (action === 'fetch_messages') {
+      console.log('🔄 Fetching messages for channel:', channelId, 'user:', userId);
+      
       // Get user's Slack tokens
       const { data: slackInfo, error: slackError } = await supabaseClient
         .from('slack_oauth_tokens')
@@ -312,6 +372,7 @@ serve(async (req) => {
         .single()
 
       if (slackError || !slackInfo) {
+        console.error('❌ No Slack connection found for user:', userId);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -324,8 +385,14 @@ serve(async (req) => {
         )
       }
 
+      console.log('✅ Found Slack connection for user:', { 
+        slackUserId: slackInfo.slack_user_id, 
+        teamId: slackInfo.slack_team_id 
+      });
+
       // Fetch messages from Slack API for the specific channel
       const historyUrl = `https://slack.com/api/conversations.history?channel=${channelId}&limit=50`;
+      console.log('🌐 Fetching messages from Slack API:', historyUrl);
       
       const historyResponse = await fetch(historyUrl, {
         headers: {
@@ -335,8 +402,14 @@ serve(async (req) => {
       });
 
       const historyData: SlackChannelHistoryResponse = await historyResponse.json();
+      console.log('📥 Slack history response:', { 
+        ok: historyData.ok, 
+        messageCount: historyData.messages?.length || 0,
+        error: historyData.error 
+      });
 
       if (!historyData.ok) {
+        console.error('❌ Slack API error:', historyData.error);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -350,10 +423,14 @@ serve(async (req) => {
       }
 
       const messages = historyData.messages || [];
+      console.log('📊 Processing', messages.length, 'messages');
 
       // Get user info for each message
+      console.log('👥 Fetching user info for messages...');
       const messagesWithUserInfo = await Promise.all(
-        messages.map(async (message) => {
+        messages.map(async (message, index) => {
+          console.log(`👤 Fetching user info for message ${index + 1}/${messages.length}`);
+          
           // Fetch user info to get username
           const userResponse = await fetch(`https://slack.com/api/users.info?user=${message.user}`, {
             headers: {
@@ -380,6 +457,7 @@ serve(async (req) => {
         })
       );
 
+      console.log('✅ Returning', messagesWithUserInfo.length, 'messages with user info');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -394,6 +472,8 @@ serve(async (req) => {
     }
 
     if (action === 'fetch_mentions') {
+      console.log('🔄 Fetching mentions for user:', userId);
+      
       // Get user's Slack tokens
       const { data: slackInfo, error: slackError } = await supabaseClient
         .from('slack_oauth_tokens')
@@ -402,6 +482,7 @@ serve(async (req) => {
         .single()
 
       if (slackError || !slackInfo) {
+        console.error('❌ No Slack connection found for user:', userId);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -414,9 +495,16 @@ serve(async (req) => {
         )
       }
 
+      console.log('✅ Found Slack connection for user:', { 
+        slackUserId: slackInfo.slack_user_id, 
+        teamId: slackInfo.slack_team_id 
+      });
+
       // Fetch mentions from Slack API
       const searchQuery = `@${slackInfo.slack_user_id}` // Search for mentions of the user
       const searchUrl = `https://slack.com/api/search.messages?query=${encodeURIComponent(searchQuery)}&count=50&sort=timestamp&sort_dir=desc`
+      console.log('🌐 Searching for mentions:', searchQuery);
+      console.log('🌐 Search URL:', searchUrl);
       
       const searchResponse = await fetch(searchUrl, {
         headers: {
@@ -426,8 +514,14 @@ serve(async (req) => {
       })
 
       const searchData: SlackSearchResponse = await searchResponse.json()
+      console.log('📥 Slack search response:', { 
+        ok: searchData.ok, 
+        mentionCount: searchData.messages?.matches?.length || 0,
+        error: searchData.error 
+      });
 
       if (!searchData.ok) {
+        console.error('❌ Slack API error:', searchData.error);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -441,10 +535,14 @@ serve(async (req) => {
       }
 
       const mentions = searchData.messages?.matches || []
+      console.log('📊 Processing', mentions.length, 'mentions');
 
       // Get user info for mentioned_by_username
+      console.log('👥 Fetching user info for mentions...');
       const mentionsWithUserInfo = await Promise.all(
-        mentions.map(async (match) => {
+        mentions.map(async (match, index) => {
+          console.log(`👤 Fetching user info for mention ${index + 1}/${mentions.length}`);
+          
           // Fetch user info to get username
           const userResponse = await fetch(`https://slack.com/api/users.info?user=${match.user}`, {
             headers: {
@@ -479,6 +577,7 @@ serve(async (req) => {
 
       // Store mentions in database
       if (mentionsWithUserInfo.length > 0) {
+        console.log('💾 Storing', mentionsWithUserInfo.length, 'mentions in database...');
         const { error: insertError } = await supabaseClient
           .from('slack_mentions')
           .upsert(mentionsWithUserInfo, { 
@@ -486,10 +585,13 @@ serve(async (req) => {
           })
 
         if (insertError) {
-          console.error('Error inserting mentions:', insertError)
+          console.error('❌ Error inserting mentions:', insertError)
+        } else {
+          console.log('✅ Mentions stored successfully');
         }
       }
 
+      console.log('✅ Returning', mentionsWithUserInfo.length, 'mentions');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -503,6 +605,7 @@ serve(async (req) => {
       )
     }
 
+    console.error('❌ Invalid action:', action);
     return new Response(
       JSON.stringify({ 
         success: false, 
@@ -515,7 +618,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('💥 Unexpected error:', error)
     return new Response(
       JSON.stringify({ 
         success: false, 

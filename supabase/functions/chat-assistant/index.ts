@@ -7,18 +7,34 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('🤖 Chat Assistant Edge Function called');
+  console.log('📝 Request method:', req.method);
+  console.log('📝 Request URL:', req.url);
+
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight request handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('📥 Parsing request body...');
     const { message, context } = await req.json();
+    console.log('📥 Request payload:', { 
+      messageLength: message?.length || 0, 
+      hasContext: !!context,
+      contextKeys: context ? Object.keys(context) : []
+    });
+
+    console.log('🔧 Checking OpenAI API key...');
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
     if (!openAIApiKey) {
+      console.error('❌ OPENAI_API_KEY is not set');
       throw new Error('OPENAI_API_KEY is not set');
     }
+    console.log('✅ OpenAI API key found');
 
+    console.log('📝 Building system prompt...');
     const systemPrompt = `You are an executive assistant helping users manage their productivity dashboard. 
 
 Current context from their screen:
@@ -32,6 +48,9 @@ Your role:
 - Be concise and professional
 
 You can only provide information and analysis - you cannot edit or modify anything.`;
+
+    console.log('📝 System prompt length:', systemPrompt.length);
+    console.log('🌐 Calling OpenAI API...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -50,18 +69,29 @@ You can only provide information and analysis - you cannot edit or modify anythi
       }),
     });
 
+    console.log('📥 OpenAI API response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${await response.text()}`);
+      const errorText = await response.text();
+      console.error('❌ OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('📥 OpenAI API response:', { 
+      model: data.model,
+      usage: data.usage,
+      choicesCount: data.choices?.length || 0
+    });
+
     const assistantMessage = data.choices[0].message.content;
+    console.log('✅ Assistant message generated, length:', assistantMessage.length);
 
     return new Response(JSON.stringify({ message: assistantMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in chat-assistant function:', error);
+    console.error('💥 Error in chat-assistant function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
