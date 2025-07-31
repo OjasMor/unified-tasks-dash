@@ -42,9 +42,7 @@ export function SlackPane() {
 
   const checkConnectionStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('slack-messages', {
-        body: { action: 'status' }
-      });
+      const { data, error } = await supabase.functions.invoke('slack-messages?action=status');
 
       if (error) {
         console.error('Status check error:', error);
@@ -65,9 +63,7 @@ export function SlackPane() {
 
   const loadChannels = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('slack-messages', {
-        body: { action: 'channels' }
-      });
+      const { data, error } = await supabase.functions.invoke('slack-messages?action=channels');
 
       if (error) {
         throw new Error(error.message);
@@ -89,12 +85,7 @@ export function SlackPane() {
       setIsLoadingMessages(true);
       setSelectedChannel(channel);
 
-      const { data, error } = await supabase.functions.invoke('slack-messages', {
-        body: { 
-          action: 'messages',
-          conversation_id: channel.conversation_id 
-        }
-      });
+      const { data, error } = await supabase.functions.invoke(`slack-messages?action=messages&conversation_id=${channel.conversation_id}`);
 
       if (error) {
         throw new Error(error.message);
