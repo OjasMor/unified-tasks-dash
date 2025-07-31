@@ -1,0 +1,59 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Unified Tasks Dashboard - Project Overview
+
+This is a React + TypeScript + Vite application that serves as a unified productivity dashboard. The project integrates with Supabase for authentication and data management, and uses shadcn/ui components for the interface.
+
+## Tech Stack
+- **Frontend**: React 18 with TypeScript
+- **Build Tool**: Vite with SWC
+- **Styling**: Tailwind CSS with custom design system
+- **UI Components**: shadcn/ui (Radix UI primitives)
+- **Backend**: Supabase (PostgreSQL + Auth + Real-time)
+- **State Management**: React Query (TanStack Query)
+- **Routing**: React Router DOM
+- **Forms**: React Hook Form with Zod validation
+
+## Key Files and Structure
+
+### Entry Points
+- [src/main.tsx](mdc:src/main.tsx) - Application entry point
+- [src/App.tsx](mdc:src/App.tsx) - Root component with providers and routing
+- [index.html](mdc:index.html) - HTML template
+
+### Pages
+- [src/pages/Index.tsx](mdc:src/pages/Index.tsx) - Main dashboard page with task management
+- [src/pages/NotFound.tsx](mdc:src/pages/NotFound.tsx) - 404 error page
+
+### Components
+- [src/components/Header.tsx](mdc:src/components/Header.tsx) - Main navigation header
+- [src/components/ToDoColumn.tsx](mdc:src/components/ToDoColumn.tsx) - Task management column
+- [src/components/CalendarColumn.tsx](mdc:src/components/CalendarColumn.tsx) - Calendar events column
+- [src/components/SlackColumn.tsx](mdc:src/components/SlackColumn.tsx) - Slack mentions column
+- [src/components/ToDoCard.tsx](mdc:src/components/ToDoCard.tsx) - Individual task card component
+- [src/components/AddTaskForm.tsx](mdc:src/components/AddTaskForm.tsx) - Form for adding new tasks
+
+### UI Components
+All shadcn/ui components are located in [src/components/ui/](mdc:src/components/ui) directory.
+
+### Authentication & Backend
+- [src/integrations/supabase/client.ts](mdc:src/integrations/supabase/client.ts) - Supabase client configuration
+- [src/integrations/supabase/types.ts](mdc:src/integrations/supabase/types.ts) - Database type definitions
+- [src/hooks/useAuth.tsx](mdc:src/hooks/useAuth.tsx) - Authentication hook
+
+### Configuration
+- [package.json](mdc:package.json) - Dependencies and scripts
+- [vite.config.ts](mdc:vite.config.ts) - Vite configuration with path aliases
+- [tailwind.config.ts](mdc:tailwind.config.ts) - Tailwind CSS configuration
+- [tsconfig.json](mdc:tsconfig.json) - TypeScript configuration
+
+## Development Guidelines
+1. Use TypeScript for all new code
+2. Follow the existing component structure in `src/components/`
+3. Use shadcn/ui components from `src/components/ui/`
+4. Implement authentication using the `useAuth` hook
+5. Use React Query for data fetching and caching
+6. Follow the existing routing pattern in `App.tsx`

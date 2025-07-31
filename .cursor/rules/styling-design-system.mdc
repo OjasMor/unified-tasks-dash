@@ -1,0 +1,238 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Styling and Design System
+
+## Tailwind CSS Configuration
+
+The project uses a custom Tailwind configuration in [tailwind.config.ts](mdc:tailwind.config.ts) with:
+
+### Color System
+The design system uses CSS custom properties for theming:
+
+```css
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+  --radius: 0.5rem;
+}
+```
+
+### Dark Mode Support
+The project supports dark mode with the `dark:` prefix:
+
+```typescript
+// In tailwind.config.ts
+darkMode: ["class"]
+```
+
+### Custom Colors
+Extended color palette includes:
+- `primary` with variants: `hover`, `muted`
+- `success` and `warning` for status indicators
+- `sidebar` colors for navigation components
+
+## Component Styling Patterns
+
+### Layout Components
+Use consistent layout patterns:
+
+```typescript
+// Page container
+<div className="min-h-screen bg-background">
+
+// Content container
+<div className="max-w-7xl mx-auto px-6 py-8">
+
+// Grid layout
+<div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
+```
+
+### Card Components
+Use the card pattern for content containers:
+
+```typescript
+<div className="bg-card rounded-lg border shadow-sm p-6">
+  <h3 className="text-lg font-semibold text-card-foreground">
+    Card Title
+  </h3>
+  <p className="text-muted-foreground">
+    Card content
+  </p>
+</div>
+```
+
+### Button Variants
+Use the button component with variants:
+
+```typescript
+import { Button } from "@/components/ui/button";
+
+// Primary button
+<Button variant="default" size="lg">
+  Primary Action
+</Button>
+
+// Secondary button
+<Button variant="secondary" size="sm">
+  Secondary Action
+</Button>
+
+// Destructive button
+<Button variant="destructive">
+  Delete
+</Button>
+```
+
+## Responsive Design
+
+### Breakpoint Strategy
+Use Tailwind's responsive prefixes:
+
+```typescript
+// Mobile first approach
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+// Responsive text sizes
+<h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">
+
+// Responsive spacing
+<div className="p-4 md:p-6 lg:p-8">
+```
+
+### Mobile Considerations
+- Use `use-mobile` hook for mobile-specific logic
+- Implement touch-friendly interactions
+- Ensure adequate touch targets (44px minimum)
+
+## Typography
+
+### Font System
+The project uses Inter font family:
+
+```typescript
+// In tailwind.config.ts
+fontFamily: {
+  inter: ['Inter', 'sans-serif'],
+}
+```
+
+### Text Hierarchy
+Use semantic text classes:
+
+```typescript
+// Headings
+<h1 className="text-3xl font-bold text-foreground">
+<h2 className="text-2xl font-semibold text-foreground">
+<h3 className="text-lg font-medium text-foreground">
+
+// Body text
+<p className="text-base text-foreground">
+<p className="text-sm text-muted-foreground">
+
+// Captions
+<span className="text-xs text-muted-foreground">
+```
+
+## Animation and Transitions
+
+### Tailwind Animations
+Use built-in animations from [tailwind.config.ts](mdc:tailwind.config.ts):
+
+```typescript
+// Accordion animations
+'animation-accordion-down': 'accordion-down 0.2s ease-out',
+'animation-accordion-up': 'accordion-up 0.2s ease-out'
+```
+
+### Custom Transitions
+Add smooth transitions for interactive elements:
+
+```typescript
+// Hover effects
+<button className="transition-colors hover:bg-accent">
+
+// Focus states
+<input className="focus:ring-2 focus:ring-ring focus:ring-offset-2">
+
+// Loading states
+<div className="animate-pulse">
+```
+
+## Accessibility
+
+### Color Contrast
+- Use semantic color tokens for proper contrast
+- Test with accessibility tools
+- Support high contrast mode
+
+### Focus Management
+- Visible focus indicators on all interactive elements
+- Logical tab order
+- Skip links for keyboard navigation
+
+### Screen Reader Support
+- Proper ARIA labels
+- Semantic HTML structure
+- Descriptive alt text for images
+
+## Custom CSS Variables
+
+### Theme Variables
+Define custom properties in [src/index.css](mdc:src/index.css):
+
+```css
+.card-shadow {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+```
+
+### Component-Specific Styles
+Use CSS modules or styled-components for complex styling:
+
+```typescript
+// For complex animations or layouts
+const StyledComponent = styled.div`
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  border-radius: var(--radius);
+`;
+```
+
+## Design Tokens
+
+### Spacing Scale
+Use consistent spacing values:
+- `4` (1rem) - Small gaps
+- `8` (2rem) - Component padding
+- `16` (4rem) - Section spacing
+- `24` (6rem) - Large spacing
+- `32` (8rem) - Page margins
+
+### Border Radius
+Use design system radius values:
+- `sm` - Small components
+- `md` - Medium components
+- `lg` - Large components
+- `full` - Circular elements
+
+### Shadows
+Use consistent shadow system:
+- `shadow-sm` - Subtle elevation
+- `shadow` - Standard elevation
+- `shadow-lg` - High elevation
+- `shadow-xl` - Maximum elevation

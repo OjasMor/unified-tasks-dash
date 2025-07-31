@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ToDo } from "@/components/ToDoCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
+import { GoogleCalendarService, GoogleCalendarEvent } from '@/integrations/google/calendar';
 
 // Sample data for demo purposes
 const sampleCalendarEvents = [
@@ -87,9 +88,35 @@ const Index = () => {
   
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isSlackConnected, setIsSlackConnected] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const { toast } = useToast();
 
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Check for calendar access and fetch events when user is authenticated
+  useEffect(() => {
+    const checkCalendarAccess = async () => {
+      if (user && !isGoogleConnected) {
+        try {
+          setCalendarLoading(true);
+          const hasAccess = await GoogleCalendarService.checkCalendarAccess();
+          
+          if (hasAccess) {
+            setIsGoogleConnected(true);
+            const events = await GoogleCalendarService.fetchTodayEvents();
+            setCalendarEvents(events);
+          }
+        } catch (error) {
+          console.error('Error checking calendar access:', error);
+        } finally {
+          setCalendarLoading(false);
+        }
+      }
+    };
+
+    checkCalendarAccess();
+  }, [user, isGoogleConnected]);
 
   if (loading) {
     return (
@@ -105,7 +132,8 @@ const Index = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${window.location.origin}/`,
+          scopes: 'openid profile email https://www.googleapis.com/auth/calendar.readonly'
         }
       });
 
@@ -190,13 +218,36 @@ const Index = () => {
     });
   };
 
-  const handleConnectGoogle = () => {
-    // In a real app, this would trigger OAuth flow
-    setIsGoogleConnected(true);
-    toast({
-      title: "Google Calendar Connected",
-      description: "Your calendar events are now synced.",
-    });
+  const handleConnectGoogle = async () => {
+    try {
+      setCalendarLoading(true);
+      const hasAccess = await GoogleCalendarService.checkCalendarAccess();
+      
+      if (hasAccess) {
+        setIsGoogleConnected(true);
+        const events = await GoogleCalendarService.fetchTodayEvents();
+        setCalendarEvents(events);
+        toast({
+          title: "Google Calendar Connected",
+          description: "Your calendar events are now synced.",
+        });
+      } else {
+        toast({
+          title: "Calendar Access Required",
+          description: "Please sign in with Google and grant calendar access.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error connecting to Google Calendar:', error);
+      toast({
+        title: "Connection Failed",
+        description: "Unable to connect to Google Calendar. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setCalendarLoading(false);
+    }
   };
 
   const handleConnectSlack = () => {
@@ -232,9 +283,10 @@ const Index = () => {
           {/* Calendar Column - 30% on large screens */}
           <div className="lg:col-span-3">
             <CalendarColumn
-              events={isGoogleConnected ? sampleCalendarEvents : []}
+              events={isGoogleConnected ? calendarEvents : []}
               isConnected={isGoogleConnected}
               onConnect={handleConnectGoogle}
+              isLoading={calendarLoading}
             />
           </div>
           
