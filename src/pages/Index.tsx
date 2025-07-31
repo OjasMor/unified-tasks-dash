@@ -293,11 +293,7 @@ const Index = () => {
           
           {/* Slack Column - 30% on large screens */}
           <div className="lg:col-span-3">
-            <SlackColumn
-              mentions={isSlackConnected ? sampleSlackMentions : []}
-              isConnected={isSlackConnected}
-              onConnect={handleConnectSlack}
-            />
+            <SlackColumn />
           </div>
         </div>
       </main>
