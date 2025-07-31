@@ -16,19 +16,37 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
     try {
       setIsConnecting(true);
 
-      // Use Supabase's built-in OAuth with slack_oidc provider
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'slack_oidc',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) {
-        throw error;
+      // Get current user to pass to the OAuth URL
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      // The redirect will happen automatically if successful
+      // Use the slack-oauth edge function to handle OAuth
+      const response = await fetch('/functions/v1/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'generate_oauth_url',
+          user_id: user.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Redirect to Slack OAuth URL
+      window.location.href = data.oauth_url;
 
     } catch (error) {
       console.error('Slack connection error:', error);

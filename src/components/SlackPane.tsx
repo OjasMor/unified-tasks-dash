@@ -52,17 +52,8 @@ export function SlackPane() {
       
       if (hasSlackProvider) {
         setIsConnected(true);
-        // For now, we'll use sample data since the integration is still being set up
-        setChannels([
-          {
-            id: 'general',
-            name: 'general',
-            latest_message: 'Welcome to the channel!',
-            latest_message_ts: new Date().toISOString(),
-            unread_count: 0,
-            is_channel: true
-          }
-        ]);
+        // Load actual channels from Slack
+        await loadChannels();
       } else {
         setIsConnected(false);
       }
@@ -74,23 +65,96 @@ export function SlackPane() {
     }
   };
 
+  const loadChannels = async () => {
+    try {
+      const response = await fetch('/functions/v1/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'fetch_channels',
+          user_id: user?.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Convert the channels data to match our interface
+      const slackChannels = data.channels?.map((channel: any) => ({
+        id: channel.conversation_id,
+        name: channel.conversation_name,
+        latest_message: channel.last_message_text || '',
+        latest_message_ts: channel.last_message_ts ? new Date(channel.last_message_ts * 1000).toISOString() : new Date().toISOString(),
+        unread_count: 0,
+        is_channel: channel.conversation_type === 'public_channel' || channel.conversation_type === 'private_channel'
+      })) || [];
+
+      setChannels(slackChannels);
+    } catch (error) {
+      console.error('Error loading Slack channels:', error);
+      toast({
+        title: "Error Loading Channels",
+        description: error instanceof Error ? error.message : "Failed to load Slack channels",
+        variant: "destructive",
+      });
+    }
+  };
+
   const loadMessages = async (channel: SlackChannel) => {
     try {
       setIsLoadingMessages(true);
       setSelectedChannel(channel);
 
-      // Sample messages for demo
-      setMessages([
-        {
-          id: '1',
-          timestamp: new Date().toISOString(),
-          text: `Welcome to #${channel.name}!`,
-          username: 'SlackBot',
-          user_image: ''
-        }
-      ]);
+      const response = await fetch('/functions/v1/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'fetch_messages',
+          user_id: user?.id,
+          channel_id: channel.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Convert the messages data to match our interface
+      const slackMessages = data.messages?.map((message: any) => ({
+        id: message.message_id,
+        timestamp: new Date(message.message_ts * 1000).toISOString(),
+        text: message.message_text,
+        username: message.username || 'Unknown User',
+        user_image: message.user_image || ''
+      })) || [];
+
+      setMessages(slackMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
+      toast({
+        title: "Error Loading Messages",
+        description: error instanceof Error ? error.message : "Failed to load messages",
+        variant: "destructive",
+      });
       setMessages([]);
     } finally {
       setIsLoadingMessages(false);
@@ -100,12 +164,10 @@ export function SlackPane() {
   const handleSlackConnect = async () => {
     try {
       await checkSlackConnection();
-      if (isConnected) {
-        toast({
-          title: "Slack Connected",
-          description: "Successfully connected to Slack",
-        });
-      }
+      toast({
+        title: "Slack Connected",
+        description: "Successfully connected to Slack",
+      });
     } catch (error) {
       console.error('Error connecting to Slack:', error);
     }
