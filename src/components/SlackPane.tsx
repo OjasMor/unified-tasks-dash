@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SlackConnectButton } from "./SlackConnectButton";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SlackChannel {
   conversation_id: string;
@@ -35,10 +36,19 @@ export function SlackPane() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    checkConnectionStatus();
-  }, []);
+    // Only check connection status if user is authenticated
+    if (!authLoading) {
+      if (user) {
+        checkConnectionStatus();
+      } else {
+        setIsLoading(false);
+        setIsConnected(false);
+      }
+    }
+  }, [user, authLoading]);
 
   const checkConnectionStatus = async () => {
     try {
@@ -46,7 +56,19 @@ export function SlackPane() {
 
       if (error) {
         console.error('Status check error:', error);
-        setIsConnected(false);
+        // Check if it's an authentication error
+        if (error.message?.includes('Unauthorized') || error.message?.includes('No authorization header') || error.message?.includes('Authentication failed')) {
+          console.log('User not authenticated for Slack access');
+          setIsConnected(false);
+        } else {
+          // For other errors, show a toast
+          toast({
+            title: "Slack Status Error",
+            description: error.message || "Failed to check Slack connection status",
+            variant: "destructive",
+          });
+          setIsConnected(false);
+        }
       } else {
         setIsConnected(data.connected);
         if (data.connected) {
@@ -56,6 +78,7 @@ export function SlackPane() {
     } catch (error) {
       console.error('Connection status error:', error);
       setIsConnected(false);
+      // Don't show toast for network errors as they might be temporary
     } finally {
       setIsLoading(false);
     }

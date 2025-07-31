@@ -15,6 +15,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
     const error = url.searchParams.get('error');
+    const state = url.searchParams.get('state'); // This could contain user info
 
     if (error) {
       return new Response(`
@@ -54,7 +55,7 @@ serve(async (req) => {
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
-        redirect_uri: `${url.origin}/functions/v1/slack-oauth-callback`,
+        redirect_uri: `https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth-callback`,
       }),
     });
 
@@ -64,7 +65,7 @@ serve(async (req) => {
       throw new Error(`Slack OAuth error: ${tokenData.error}`);
     }
 
-    // Get user info from the state or make another API call
+    // Get user info from Slack
     const userInfoResponse = await fetch('https://slack.com/api/auth.test', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
@@ -77,17 +78,14 @@ serve(async (req) => {
       throw new Error(`Failed to get user info: ${userInfo.error}`);
     }
 
-    // Note: This is a simplified version. In production, you'd need to 
-    // associate this with the actual Supabase user somehow
-    // For now, we'll store with a placeholder user_id that needs to be updated
+    // Create Supabase client with service role key for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // This would typically come from the auth state passed through OAuth
-    // For now, we'll store it and let the frontend handle the association
+    // For now, we'll store the token without a user_id and let the frontend handle the association
+    // This is because we can't easily get the user context in the callback
     const { error: dbError } = await supabase
       .from('slack_oauth_tokens')
       .upsert({
-        // user_id: will be updated by frontend after successful auth
         slack_team_id: tokenData.team.id,
         slack_user_id: userInfo.user_id,
         access_token: tokenData.access_token,
