@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface SlackConnectButtonProps {
-  onSuccess?: (teamId: string, teamName: string) => void;
+  onSuccess?: () => void;
 }
 
 export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
@@ -15,17 +16,33 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
     try {
       setIsConnecting(true);
 
-      // Simulate OAuth process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("Please sign in to connect Slack");
+      }
 
-      // Simulate successful connection
-      toast({
-        title: "Slack Connected",
-        description: "Successfully connected to Slack (demo mode)",
+      // Call the Supabase Edge Function to initiate OAuth
+      const response = await fetch('/api/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'initiate_oauth',
+          userId: session.user.id
+        })
       });
 
-      if (onSuccess) {
-        onSuccess("demo-team-id", "Demo Team");
+      const result = await response.json();
+
+      if (result.success && result.oauthUrl) {
+        // Redirect to Slack OAuth
+        window.location.href = result.oauthUrl;
+      } else {
+        throw new Error(result.error || 'Failed to initiate OAuth');
       }
 
     } catch (error) {
@@ -52,7 +69,7 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
       ) : (
         <MessageSquare className="h-4 w-4" />
       )}
-      {isConnecting ? "Connecting..." : "Connect Slack (Demo)"}
+      {isConnecting ? "Connecting..." : "Connect with Slack"}
     </Button>
   );
 }
