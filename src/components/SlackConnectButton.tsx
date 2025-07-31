@@ -16,34 +16,19 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
     try {
       setIsConnecting(true);
 
-      // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("Please sign in to connect Slack");
-      }
-
-      // Call the Supabase Edge Function to initiate OAuth
-      const response = await fetch('/api/slack-oauth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          action: 'initiate_oauth',
-          userId: session.user.id
-        })
+      // Use Supabase's built-in OAuth with slack_oidc provider
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'slack_oidc',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
       });
 
-      const result = await response.json();
-
-      if (result.success && result.oauthUrl) {
-        // Redirect to Slack OAuth
-        window.location.href = result.oauthUrl;
-      } else {
-        throw new Error(result.error || 'Failed to initiate OAuth');
+      if (error) {
+        throw error;
       }
+
+      // The redirect will happen automatically if successful
 
     } catch (error) {
       console.error('Slack connection error:', error);
@@ -52,7 +37,6 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
         description: error instanceof Error ? error.message : "Failed to connect to Slack",
         variant: "destructive",
       });
-    } finally {
       setIsConnecting(false);
     }
   };
