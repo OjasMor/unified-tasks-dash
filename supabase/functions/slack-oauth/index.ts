@@ -125,6 +125,21 @@ serve(async (req) => {
         scopes 
       });
       
+      // Check if required environment variables are set
+      if (!clientId) {
+        console.error('❌ SLACK_CLIENT_ID environment variable is not set');
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Slack OAuth is not properly configured. Please contact the administrator.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500 
+          }
+        )
+      }
+      
       const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${userId}`;
       
       console.log('✅ OAuth URL generated:', oauthUrl);
