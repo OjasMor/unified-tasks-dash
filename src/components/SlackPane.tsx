@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { MessageSquare, ExternalLink, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { SlackConnectButton } from "./SlackConnectButton";
-import { useAuth } from "@/hooks/useAuth";
 
 interface SlackChannel {
   conversation_id: string;
@@ -28,6 +26,70 @@ interface SlackMessage {
   user_slack_id: string;
 }
 
+// Mock data for demonstration
+const mockChannels: SlackChannel[] = [
+  {
+    conversation_id: "general",
+    conversation_name: "general",
+    conversation_type: "public_channel",
+    is_channel: true,
+    latest_message_ts: "2025-01-31T22:00:00.000Z",
+    latest_message_text: "Great work on the new feature!",
+    latest_message_user: "Sarah Chen",
+    message_count: 15
+  },
+  {
+    conversation_id: "design-team",
+    conversation_name: "design-team",
+    conversation_type: "private_channel",
+    is_channel: true,
+    latest_message_ts: "2025-01-31T21:30:00.000Z",
+    latest_message_text: "Can you review the new designs?",
+    latest_message_user: "Mike Rodriguez",
+    message_count: 8
+  },
+  {
+    conversation_id: "development",
+    conversation_name: "development",
+    conversation_type: "public_channel",
+    is_channel: true,
+    latest_message_ts: "2025-01-31T21:00:00.000Z",
+    latest_message_text: "API endpoint is ready for testing",
+    latest_message_user: "Lisa Park",
+    message_count: 12
+  }
+];
+
+const mockMessages: SlackMessage[] = [
+  {
+    id: "1",
+    message_ts: "2025-01-31T22:00:00.000Z",
+    text: "Great work on the new feature! The UI looks really clean.",
+    username: "Sarah Chen",
+    user_image: "https://via.placeholder.com/32",
+    slack_created_at: "2025-01-31T22:00:00.000Z",
+    user_slack_id: "U123456"
+  },
+  {
+    id: "2",
+    message_ts: "2025-01-31T21:45:00.000Z",
+    text: "Thanks! I spent a lot of time on the user experience.",
+    username: "John Doe",
+    user_image: "https://via.placeholder.com/32",
+    slack_created_at: "2025-01-31T21:45:00.000Z",
+    user_slack_id: "U789012"
+  },
+  {
+    id: "3",
+    message_ts: "2025-01-31T21:30:00.000Z",
+    text: "When will this be ready for testing?",
+    username: "Mike Rodriguez",
+    user_image: "https://via.placeholder.com/32",
+    slack_created_at: "2025-01-31T21:30:00.000Z",
+    user_slack_id: "U345678"
+  }
+];
+
 export function SlackPane() {
   const [isConnected, setIsConnected] = useState(false);
   const [channels, setChannels] = useState<SlackChannel[]>([]);
@@ -36,85 +98,27 @@ export function SlackPane() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    // Only check connection status if user is authenticated
-    if (!authLoading) {
-      if (user) {
-        checkConnectionStatus();
-      } else {
-        setIsLoading(false);
-        setIsConnected(false);
-      }
-    }
-  }, [user, authLoading]);
-
-  const checkConnectionStatus = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('slack-messages?action=status');
-
-      if (error) {
-        console.error('Status check error:', error);
-        // Check if it's an authentication error
-        if (error.message?.includes('Unauthorized') || error.message?.includes('No authorization header') || error.message?.includes('Authentication failed')) {
-          console.log('User not authenticated for Slack access');
-          setIsConnected(false);
-        } else {
-          // For other errors, show a toast
-          toast({
-            title: "Slack Status Error",
-            description: error.message || "Failed to check Slack connection status",
-            variant: "destructive",
-          });
-          setIsConnected(false);
-        }
-      } else {
-        setIsConnected(data.connected);
-        if (data.connected) {
-          loadChannels();
-        }
-      }
-    } catch (error) {
-      console.error('Connection status error:', error);
-      setIsConnected(false);
-      // Don't show toast for network errors as they might be temporary
-    } finally {
+    // Simulate loading
+    setTimeout(() => {
       setIsLoading(false);
-    }
-  };
-
-  const loadChannels = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('slack-messages?action=channels');
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setChannels(data.channels || []);
-    } catch (error) {
-      console.error('Error loading channels:', error);
-      toast({
-        title: "Error Loading Channels",
-        description: "Failed to load Slack channels",
-        variant: "destructive",
-      });
-    }
-  };
+      // For demo purposes, show as connected with mock data
+      setIsConnected(true);
+      setChannels(mockChannels);
+    }, 1000);
+  }, []);
 
   const loadMessages = async (channel: SlackChannel) => {
     try {
       setIsLoadingMessages(true);
       setSelectedChannel(channel);
 
-      const { data, error } = await supabase.functions.invoke(`slack-messages?action=messages&conversation_id=${channel.conversation_id}`);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setMessages(data.messages || []);
+      // Simulate API call delay
+      setTimeout(() => {
+        setMessages(mockMessages);
+        setIsLoadingMessages(false);
+      }, 500);
     } catch (error) {
       console.error('Error loading messages:', error);
       toast({
@@ -122,14 +126,17 @@ export function SlackPane() {
         description: "Failed to load Slack messages",
         variant: "destructive",
       });
-    } finally {
       setIsLoadingMessages(false);
     }
   };
 
   const handleSlackConnect = () => {
     setIsConnected(true);
-    loadChannels();
+    setChannels(mockChannels);
+    toast({
+      title: "Slack Connected",
+      description: "Successfully connected to Slack (demo mode)",
+    });
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -163,7 +170,7 @@ export function SlackPane() {
         </div>
         <div className="bg-card border border-muted rounded-lg p-6 text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-          <p className="text-muted-foreground">Checking Slack connection...</p>
+          <p className="text-muted-foreground">Loading Slack...</p>
         </div>
       </div>
     );
@@ -197,6 +204,7 @@ export function SlackPane() {
         <MessageSquare className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold text-foreground">Slack</h2>
         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+        <span className="text-xs text-muted-foreground">(Demo Mode)</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
