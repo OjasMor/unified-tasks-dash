@@ -20,7 +20,7 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'slack_oidc',
         options: {
-          scopes: 'channels:read channels:history mpim:read mpim:history users:read'
+          scopes: 'openid profile email'
         }
       });
 
