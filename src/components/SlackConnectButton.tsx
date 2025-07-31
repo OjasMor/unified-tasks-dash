@@ -18,7 +18,7 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
 
       // Use Supabase's built-in Slack OAuth
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'slack',
+        provider: 'slack_oidc',
         options: {
           scopes: 'channels:read channels:history im:read im:history mpim:read mpim:history users:read'
         }
