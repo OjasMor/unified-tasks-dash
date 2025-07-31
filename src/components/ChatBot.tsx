@@ -21,6 +21,56 @@ interface ChatBotProps {
   };
 }
 
+const formatMessage = (text: string) => {
+  // Split text by lines and format each line
+  const lines = text.split('\n');
+  return lines.map((line, index) => {
+    // Handle numbered lists (1. 2. etc.)
+    if (/^\d+\.\s/.test(line)) {
+      return (
+        <div key={index} className="font-semibold text-foreground mb-2">
+          {line}
+        </div>
+      );
+    }
+    
+    // Handle bold text (**text**)
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    const parts = line.split(boldRegex);
+    const formattedLine = parts.map((part, partIndex) => {
+      if (partIndex % 2 === 1) {
+        return <strong key={partIndex} className="font-semibold">{part}</strong>;
+      }
+      
+      // Handle links
+      const urlRegex = /(https?:\/\/[^\s)]+)/g;
+      const linkParts = part.split(urlRegex);
+      return linkParts.map((linkPart, linkIndex) => {
+        if (urlRegex.test(linkPart)) {
+          return (
+            <a
+              key={linkIndex}
+              href={linkPart}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline break-all"
+            >
+              {linkPart.length > 50 ? `${linkPart.substring(0, 50)}...` : linkPart}
+            </a>
+          );
+        }
+        return linkPart;
+      });
+    });
+    
+    return (
+      <div key={index} className={index < lines.length - 1 ? "mb-1" : ""}>
+        {formattedLine}
+      </div>
+    );
+  });
+};
+
 export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -109,7 +159,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-80 h-96 bg-card border border-border rounded-lg shadow-lg flex flex-col">
+    <div className="fixed bottom-6 right-6 z-50 w-96 h-[500px] bg-card border border-border rounded-lg shadow-lg flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
@@ -147,13 +197,15 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
                   className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[75%] p-3 rounded-lg ${
+                    className={`max-w-[85%] p-3 rounded-lg ${
                       message.sender === 'user'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                    <div className="text-sm whitespace-pre-wrap break-words">
+                      {formatMessage(message.text)}
+                    </div>
                     <span className="text-xs opacity-70 mt-1 block">
                       {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
