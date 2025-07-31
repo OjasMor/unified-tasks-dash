@@ -1,6 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Calendar, MessageSquare, Check, LogOut } from "lucide-react";
+import { Calendar, MessageSquare, Check, LogOut, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+
+const SUPABASE_URL = "https://dggmyssboghmwytvuuqq.supabase.co";
 
 interface HeaderProps {
   isGoogleConnected: boolean;
@@ -16,6 +21,76 @@ export function Header({
   onConnectSlack 
 }: HeaderProps) {
   const { user, signOut } = useAuth();
+  const [isConnectingSlack, setIsConnectingSlack] = useState(false);
+  const { toast } = useToast();
+
+  const handleSlackConnect = async () => {
+    try {
+      setIsConnectingSlack(true);
+      console.log('🔄 Starting Slack OAuth process...');
+
+      // Get current user to pass to the OAuth URL
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      console.log('✅ User authenticated:', user.id);
+
+      // Get session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No access token available');
+      }
+      console.log('✅ Session token available');
+
+      // Use the slack-oauth edge function to handle OAuth
+      console.log('📡 Calling edge function...');
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/slack-oauth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'initiate_oauth',
+          user_id: user.id
+        })
+      });
+
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ HTTP error:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('📥 Response data:', data);
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (!data.oauth_url) {
+        throw new Error('No OAuth URL received from server');
+      }
+
+      console.log('✅ Redirecting to Slack OAuth URL');
+      // Redirect to Slack OAuth URL
+      window.location.href = data.oauth_url;
+
+    } catch (error) {
+      console.error('❌ Slack connection error:', error);
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect to Slack",
+        variant: "destructive",
+      });
+      setIsConnectingSlack(false);
+    }
+  };
+
   return (
     <header className="bg-card border-b border-muted card-shadow">
       <div className="max-w-7xl mx-auto px-6 py-4">
@@ -46,14 +121,19 @@ export function Header({
             
             <Button 
               variant={isSlackConnected ? "connected" : "connect"}
-              onClick={onConnectSlack}
-              disabled={isSlackConnected}
+              onClick={handleSlackConnect}
+              disabled={isSlackConnected || isConnectingSlack}
               className="gap-2"
             >
               {isSlackConnected ? (
                 <>
                   <Check className="h-4 w-4" />
                   Slack Connected
+                </>
+              ) : isConnectingSlack ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Connecting...
                 </>
               ) : (
                 <>
