@@ -54,7 +54,7 @@ export default function AuthCallback() {
         }
 
         // Call the Supabase Edge Function to handle the OAuth callback
-        const response = await fetch('/api/slack-oauth', {
+        const response = await fetch('/functions/v1/slack-oauth', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

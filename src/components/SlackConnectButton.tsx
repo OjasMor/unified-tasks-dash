@@ -30,7 +30,7 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
         body: JSON.stringify({
-          action: 'generate_oauth_url',
+          action: 'initiate_oauth',
           user_id: user.id
         })
       });

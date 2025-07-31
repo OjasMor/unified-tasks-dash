@@ -133,7 +133,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'OAuth URL generated',
-          oauthUrl: oauthUrl
+          oauth_url: oauthUrl
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -466,7 +466,7 @@ supabase functions deploy slack-oauth
 
 The integration uses the following API endpoints:
 
-- `POST /api/slack-oauth` - Handle OAuth flow and mentions fetching
+- `POST /functions/v1/slack-oauth` - Handle OAuth flow and mentions fetching
 - `GET /auth/callback` - Handle OAuth callback redirect
 
 ## Components

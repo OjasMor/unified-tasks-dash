@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.google-calendar]
 verify_jwt = false
+
+[functions.slack-oauth]
+verify_jwt = false
