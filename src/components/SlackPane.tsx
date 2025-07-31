@@ -67,7 +67,7 @@ export function SlackPane() {
 
   const loadChannels = async () => {
     try {
-      const response = await fetch('/functions/v1/slack-oauth', {
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ export function SlackPane() {
       setIsLoadingMessages(true);
       setSelectedChannel(channel);
 
-      const response = await fetch('/functions/v1/slack-oauth', {
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -23,7 +23,7 @@ export function SlackConnectButton({ onSuccess }: SlackConnectButtonProps) {
       }
 
       // Use the slack-oauth edge function to handle OAuth
-      const response = await fetch('/functions/v1/slack-oauth', {
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

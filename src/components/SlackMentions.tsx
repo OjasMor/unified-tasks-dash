@@ -61,7 +61,7 @@ export function SlackMentions({ userId }: SlackMentionsProps) {
       setIsLoading(true);
       
       // Call the Supabase Edge Function to fetch mentions
-      const response = await fetch('/functions/v1/slack-oauth', {
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
