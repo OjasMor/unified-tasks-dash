@@ -1,0 +1,149 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Component Patterns and Conventions
+
+## Component Structure
+
+### Page Components
+Page components are located in [src/pages/](mdc:src/pages/) and follow this pattern:
+- Use functional components with TypeScript
+- Import necessary hooks and components
+- Handle authentication state using `useAuth` hook
+- Return JSX with proper TypeScript types
+
+Example from [src/pages/Index.tsx](mdc:src/pages/Index.tsx):
+```typescript
+const Index = () => {
+  const { user, loading, signOut } = useAuth();
+  // Component logic here
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Page content */}
+    </div>
+  );
+};
+```
+
+### Feature Components
+Feature components are located in [src/components/](mdc:src/components/) and follow these conventions:
+
+1. **Props Interface**: Define TypeScript interfaces for component props
+2. **Default Props**: Use default parameter values instead of defaultProps
+3. **Event Handlers**: Use descriptive names like `onAddTodo`, `onToggleComplete`
+4. **State Management**: Use React hooks for local state
+
+Example pattern:
+```typescript
+interface ComponentProps {
+  data: DataType[];
+  onAction: (id: string) => void;
+  isLoading?: boolean;
+}
+
+export const Component = ({ 
+  data, 
+  onAction, 
+  isLoading = false 
+}: ComponentProps) => {
+  // Component implementation
+};
+```
+
+### UI Components
+shadcn/ui components are in [src/components/ui/](mdc:src/components/ui/) and follow Radix UI patterns:
+
+1. **Composition**: Use compound components where appropriate
+2. **Accessibility**: All components include proper ARIA attributes
+3. **Styling**: Use Tailwind CSS classes with design system tokens
+4. **Variants**: Use `class-variance-authority` for component variants
+
+## Styling Conventions
+
+### Tailwind CSS Classes
+- Use semantic color tokens: `bg-background`, `text-foreground`, `border-border`
+- Use responsive prefixes: `lg:grid-cols-3`, `md:flex-row`
+- Use design system spacing: `p-6`, `gap-8`, `mb-4`
+
+### Custom CSS Variables
+The project uses CSS custom properties defined in [src/index.css](mdc:src/index.css) for theming:
+- `--background`, `--foreground` for base colors
+- `--primary`, `--secondary` for brand colors
+- `--muted`, `--accent` for supporting colors
+
+### Layout Patterns
+1. **Grid Layout**: Use CSS Grid for responsive layouts
+2. **Flexbox**: Use Flexbox for component alignment
+3. **Container**: Use the container class for consistent max-widths
+4. **Spacing**: Use consistent spacing scale (4, 8, 16, 24, 32, 48, 64)
+
+## State Management Patterns
+
+### Local State
+Use React hooks for component-local state:
+```typescript
+const [todos, setTodos] = useState<ToDo[]>([]);
+const [isLoading, setIsLoading] = useState(false);
+```
+
+### Global State
+Use React Query for server state and data fetching:
+```typescript
+const { data, isLoading, error } = useQuery({
+  queryKey: ['todos'],
+  queryFn: fetchTodos
+});
+```
+
+### Authentication State
+Use the `useAuth` hook from [src/hooks/useAuth.tsx](mdc:src/hooks/useAuth.tsx):
+```typescript
+const { user, loading, signOut } = useAuth();
+```
+
+## Event Handling Patterns
+
+### Form Submissions
+Use React Hook Form for form handling:
+```typescript
+const form = useForm<FormData>({
+  resolver: zodResolver(schema)
+});
+```
+
+### Custom Events
+Use descriptive event handler names:
+- `onAddTodo` for adding new todos
+- `onToggleComplete` for toggling completion status
+- `onDeleteTodo` for removing todos
+- `onConnect` for connecting external services
+
+## Error Handling
+
+### Toast Notifications
+Use the toast system from [src/hooks/use-toast.ts](mdc:src/hooks/use-toast.ts):
+```typescript
+const { toast } = useToast();
+
+toast({
+  title: "Success",
+  description: "Operation completed successfully",
+  variant: "default"
+});
+```
+
+### Loading States
+Show loading indicators during async operations:
+```typescript
+const [isLoading, setIsLoading] = useState(false);
+
+// In async function
+setIsLoading(true);
+try {
+  await operation();
+} finally {
+  setIsLoading(false);
+}
+```

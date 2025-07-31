@@ -1,0 +1,168 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Authentication and Supabase Integration
+
+## Supabase Client Setup
+
+The Supabase client is configured in [src/integrations/supabase/client.ts](mdc:src/integrations/supabase/client.ts):
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types';
+
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
+```
+
+## Authentication Hook
+
+The `useAuth` hook in [src/hooks/useAuth.tsx](mdc:src/hooks/useAuth.tsx) provides authentication state:
+
+```typescript
+const { user, session, loading, signOut } = useAuth();
+```
+
+### Usage Pattern
+1. **Check Loading State**: Always check `loading` before rendering
+2. **Handle Unauthenticated Users**: Redirect to login or show login UI
+3. **Access User Data**: Use `user` object for user information
+
+Example from [src/pages/Index.tsx](mdc:src/pages/Index.tsx):
+```typescript
+const { user, loading, signOut } = useAuth();
+
+if (loading) {
+  return <div>Loading...</div>;
+}
+
+if (!user) {
+  return <LoginComponent />;
+}
+```
+
+## OAuth Authentication
+
+### Google OAuth Flow
+The app uses Google OAuth for authentication:
+
+```typescript
+const handleGoogleLogin = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/`
+    }
+  });
+  
+  if (error) {
+    // Handle error with toast notification
+  }
+};
+```
+
+### Authentication States
+1. **Loading**: Show loading spinner
+2. **Unauthenticated**: Show login form
+3. **Authenticated**: Show main application
+
+## Database Integration
+
+### Type Safety
+Database types are defined in [src/integrations/supabase/types.ts](mdc:src/integrations/supabase/types.ts) and imported into the client for type safety.
+
+### Data Operations
+When working with Supabase data:
+
+1. **Queries**: Use Supabase client methods
+2. **Real-time**: Subscribe to changes with `supabase.channel()`
+3. **Error Handling**: Always handle potential errors
+4. **Loading States**: Show loading indicators during operations
+
+Example pattern:
+```typescript
+const { data, error, loading } = await supabase
+  .from('todos')
+  .select('*')
+  .eq('user_id', user.id);
+
+if (error) {
+  toast({
+    title: "Error",
+    description: error.message,
+    variant: "destructive"
+  });
+}
+```
+
+## Security Best Practices
+
+### Environment Variables
+- Store Supabase URL and keys in environment variables
+- Never commit sensitive keys to version control
+- Use different keys for development and production
+
+### Row Level Security (RLS)
+- Enable RLS on all tables
+- Create policies that filter by `user_id`
+- Test policies thoroughly
+
+### Session Management
+- Sessions are automatically persisted in localStorage
+- Tokens are automatically refreshed
+- Handle session expiration gracefully
+
+## Error Handling
+
+### Authentication Errors
+Handle common authentication errors:
+
+```typescript
+if (error?.message === 'Invalid login credentials') {
+  toast({
+    title: "Login failed",
+    description: "Please check your credentials",
+    variant: "destructive"
+  });
+}
+```
+
+### Network Errors
+Handle network connectivity issues:
+
+```typescript
+if (error?.code === 'NETWORK_ERROR') {
+  toast({
+    title: "Connection error",
+    description: "Please check your internet connection",
+    variant: "destructive"
+  });
+}
+```
+
+## Development Workflow
+
+### Local Development
+1. Set up Supabase project
+2. Configure environment variables
+3. Run database migrations
+4. Test authentication flow
+
+### Testing Authentication
+1. Test login/logout flow
+2. Test session persistence
+3. Test error scenarios
+4. Test with different providers
+
+### Production Deployment
+1. Set up production Supabase project
+2. Configure production environment variables
+3. Set up proper CORS settings
+4. Test authentication in production environment

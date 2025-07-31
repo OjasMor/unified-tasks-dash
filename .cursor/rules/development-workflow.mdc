@@ -1,0 +1,275 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Development Workflow and Best Practices
+
+## Project Setup
+
+### Prerequisites
+- Node.js 18+ 
+- npm, yarn, or bun package manager
+- Git for version control
+
+### Installation
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+## Available Scripts
+
+From [package.json](mdc:package.json):
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build", 
+    "build:dev": "vite build --mode development",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  }
+}
+```
+
+### Development Commands
+- `npm run dev` - Start development server on port 8080
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
+
+## Development Environment
+
+### Vite Configuration
+The project uses Vite with custom configuration in [vite.config.ts](mdc:vite.config.ts):
+
+```typescript
+export default defineConfig({
+  server: {
+    host: "::",
+    port: 8080,
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+});
+```
+
+### Path Aliases
+Use the `@` alias for imports from the src directory:
+
+```typescript
+// Instead of
+import { Button } from "../../components/ui/button";
+
+// Use
+import { Button } from "@/components/ui/button";
+```
+
+### TypeScript Configuration
+TypeScript is configured in [tsconfig.json](mdc:tsconfig.json) with strict settings and path mapping.
+
+## Code Quality
+
+### ESLint Configuration
+ESLint is configured in [eslint.config.js](mdc:eslint.config.js) with:
+- React Hooks rules
+- TypeScript support
+- React Refresh plugin
+
+### Linting Commands
+```bash
+# Lint all files
+npm run lint
+
+# Lint specific files
+npx eslint src/components/Header.tsx
+
+# Fix auto-fixable issues
+npx eslint --fix src/
+```
+
+### TypeScript Checking
+```bash
+# Type check the project
+npx tsc --noEmit
+
+# Type check specific files
+npx tsc --noEmit src/components/Header.tsx
+```
+
+## File Organization
+
+### Directory Structure
+```
+src/
+├── components/          # Reusable components
+│   ├── ui/            # shadcn/ui components
+│   └── *.tsx          # Feature components
+├── hooks/             # Custom React hooks
+├── integrations/      # Third-party integrations
+│   └── supabase/     # Supabase client and types
+├── lib/              # Utility functions
+├── pages/            # Page components
+└── main.tsx          # Entry point
+```
+
+### Import Organization
+Organize imports in this order:
+1. React and React-related imports
+2. Third-party libraries
+3. Internal components and hooks
+4. Types and utilities
+5. Relative imports
+
+```typescript
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { ToDo } from "@/components/ToDoCard";
+```
+
+## Git Workflow
+
+### Branch Naming
+Use descriptive branch names:
+- `feature/add-todo-functionality`
+- `bugfix/fix-authentication-flow`
+- `hotfix/critical-security-patch`
+
+### Commit Messages
+Follow conventional commit format:
+```
+type(scope): description
+
+feat(auth): add Google OAuth integration
+fix(ui): resolve button alignment issue
+docs(readme): update installation instructions
+```
+
+### Pull Request Process
+1. Create feature branch from main
+2. Make changes with descriptive commits
+3. Run linting and type checking
+4. Test functionality
+5. Create PR with clear description
+6. Request review from team members
+
+## Testing Strategy
+
+### Manual Testing Checklist
+- [ ] Authentication flow (login/logout)
+- [ ] Responsive design on different screen sizes
+- [ ] Form validation and error handling
+- [ ] Toast notifications
+- [ ] Loading states
+- [ ] Error boundaries
+
+### Browser Testing
+Test in:
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+
+### Mobile Testing
+- Test on iOS Safari
+- Test on Android Chrome
+- Verify touch interactions
+- Check viewport scaling
+
+## Performance Optimization
+
+### Bundle Analysis
+```bash
+# Analyze bundle size
+npm run build
+npx vite-bundle-analyzer dist
+```
+
+### Code Splitting
+- Use React.lazy() for route-based splitting
+- Implement dynamic imports for heavy components
+- Optimize third-party library imports
+
+### Image Optimization
+- Use WebP format when possible
+- Implement lazy loading for images
+- Optimize image sizes for different screen densities
+
+## Environment Configuration
+
+### Environment Variables
+Create `.env.local` for local development:
+```bash
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### Environment Types
+Define environment variable types in [vite-env.d.ts](mdc:src/vite-env.d.ts):
+```typescript
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string
+  readonly VITE_SUPABASE_ANON_KEY: string
+}
+```
+
+## Deployment
+
+### Build Process
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### Deployment Checklist
+- [ ] Environment variables configured
+- [ ] Build completes successfully
+- [ ] Static assets served correctly
+- [ ] API endpoints accessible
+- [ ] Authentication working
+- [ ] Error monitoring configured
+
+### CI/CD Integration
+Consider setting up:
+- Automated testing on PR
+- Build verification
+- Deployment to staging/production
+- Performance monitoring
+
+## Debugging
+
+### Development Tools
+- React Developer Tools
+- Redux DevTools (if using Redux)
+- Network tab for API debugging
+- Console for error tracking
+
+### Common Issues
+1. **TypeScript errors**: Check type definitions and imports
+2. **Styling issues**: Verify Tailwind classes and CSS variables
+3. **Authentication problems**: Check Supabase configuration
+4. **Build failures**: Verify dependencies and TypeScript errors
+
+### Error Handling
+Implement proper error boundaries:
+```typescript
+class ErrorBoundary extends React.Component {
+  // Error boundary implementation
+}
+```
