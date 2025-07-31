@@ -10,24 +10,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
 interface SlackChannel {
-  conversation_id: string;
-  conversation_name: string;
-  conversation_type: string;
-  is_channel: boolean;
+  id: string;
+  name: string;
+  latest_message: string;
   latest_message_ts: string;
-  latest_message_text: string;
-  latest_message_user: string;
-  message_count: number;
+  unread_count: number;
+  is_channel?: boolean;
 }
 
 interface SlackMessage {
   id: string;
-  message_ts: string;
+  timestamp: string;
   text: string;
   username: string;
   user_image?: string;
-  slack_created_at: string;
-  user_slack_id: string;
 }
 
 export function SlackPane() {
@@ -50,15 +46,23 @@ export function SlackPane() {
     try {
       setIsLoading(true);
       
-      const { data, error } = await supabase
-        .from('slack_oauth_tokens')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (data && !error) {
+      // Check if user has slack_oidc provider in their auth metadata
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const hasSlackProvider = authUser?.app_metadata?.providers?.includes('slack_oidc');
+      
+      if (hasSlackProvider) {
         setIsConnected(true);
-        await fetchChannels();
+        // For now, we'll use sample data since the integration is still being set up
+        setChannels([
+          {
+            id: 'general',
+            name: 'general',
+            latest_message: 'Welcome to the channel!',
+            latest_message_ts: new Date().toISOString(),
+            unread_count: 0,
+            is_channel: true
+          }
+        ]);
       } else {
         setIsConnected(false);
       }
@@ -70,80 +74,24 @@ export function SlackPane() {
     }
   };
 
-  const fetchChannels = async () => {
-    try {
-      // Call the Edge Function to fetch channels from Slack API
-      const response = await fetch('/api/slack-oauth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          action: 'fetch_channels',
-          userId: user?.id
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setChannels(result.channels || []);
-      } else {
-        console.error('Error fetching channels:', result.error);
-        toast({
-          title: "Error Loading Channels",
-          description: result.error || "Failed to load Slack channels",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching channels:', error);
-      toast({
-        title: "Error Loading Channels",
-        description: "Failed to load Slack channels",
-        variant: "destructive",
-      });
-    }
-  };
-
   const loadMessages = async (channel: SlackChannel) => {
     try {
       setIsLoadingMessages(true);
       setSelectedChannel(channel);
 
-      // Call the Edge Function to fetch messages for this channel
-      const response = await fetch('/api/slack-oauth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          action: 'fetch_messages',
-          userId: user?.id,
-          channelId: channel.conversation_id
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setMessages(result.messages || []);
-      } else {
-        toast({
-          title: "Error Loading Messages",
-          description: result.error || "Failed to load Slack messages",
-          variant: "destructive",
-        });
-      }
+      // Sample messages for demo
+      setMessages([
+        {
+          id: '1',
+          timestamp: new Date().toISOString(),
+          text: `Welcome to #${channel.name}!`,
+          username: 'SlackBot',
+          user_image: ''
+        }
+      ]);
     } catch (error) {
       console.error('Error loading messages:', error);
-      toast({
-        title: "Error Loading Messages",
-        description: "Failed to load Slack messages",
-        variant: "destructive",
-      });
+      setMessages([]);
     } finally {
       setIsLoadingMessages(false);
     }
@@ -169,7 +117,7 @@ export function SlackPane() {
 
   const copySlackLink = (channel: SlackChannel, messageTs?: string) => {
     // Generate actual Slack deep links
-    const baseUrl = `https://slack.com/app_redirect?channel=${channel.conversation_id}`;
+    const baseUrl = `https://slack.com/app_redirect?channel=${channel.id}`;
     const url = messageTs ? `${baseUrl}&message_ts=${messageTs}` : baseUrl;
     
     navigator.clipboard.writeText(url);
@@ -180,7 +128,7 @@ export function SlackPane() {
   };
 
   const openInSlack = (channel: SlackChannel, messageTs?: string) => {
-    const baseUrl = `https://slack.com/app_redirect?channel=${channel.conversation_id}`;
+    const baseUrl = `https://slack.com/app_redirect?channel=${channel.id}`;
     const url = messageTs ? `${baseUrl}&message_ts=${messageTs}` : baseUrl;
     window.open(url, '_blank');
   };
@@ -251,9 +199,9 @@ export function SlackPane() {
                 <div className="space-y-2">
                   {channels.map((channel) => (
                     <div
-                      key={channel.conversation_id}
+                      key={channel.id}
                       className={`bg-card border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${
-                        selectedChannel?.conversation_id === channel.conversation_id
+                        selectedChannel?.id === channel.id
                           ? 'border-primary shadow-md'
                           : 'border-muted'
                       }`}
@@ -261,23 +209,22 @@ export function SlackPane() {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-card-foreground truncate">
-                          {channel.is_channel ? '#' : ''}{channel.conversation_name}
+                          {channel.is_channel ? '#' : ''}{channel.name}
                         </h4>
                         <span className="text-xs text-muted-foreground">
-                          {channel.message_count}
+                          {channel.unread_count}
                         </span>
                       </div>
                       
-                      {channel.latest_message_text && (
+                      {channel.latest_message && (
                         <div className="text-xs text-muted-foreground">
-                          <span className="font-medium">{channel.latest_message_user}:</span>{' '}
-                          <span className="line-clamp-1">{channel.latest_message_text}</span>
+                          <span className="line-clamp-1">{channel.latest_message}</span>
                         </div>
                       )}
                       
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-xs text-muted-foreground">
-                          {channel.latest_message_ts && formatTimestamp(channel.latest_message_ts)}
+                          {formatTimestamp(channel.latest_message_ts)}
                         </span>
                         <div className="flex gap-1">
                           <Button
@@ -319,7 +266,7 @@ export function SlackPane() {
             {/* Messages */}
             <div className="space-y-3">
               <h3 className="font-medium text-foreground">
-                {selectedChannel ? `Messages in ${selectedChannel.conversation_name}` : 'Select a channel'}
+                {selectedChannel ? `Messages in ${selectedChannel.name}` : 'Select a channel'}
               </h3>
               
               {isLoadingMessages ? (
@@ -356,7 +303,7 @@ export function SlackPane() {
                                 {message.username}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {formatTimestamp(message.slack_created_at)}
+                                {formatTimestamp(message.timestamp)}
                               </span>
                             </div>
                             
@@ -369,7 +316,7 @@ export function SlackPane() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 w-6 p-0"
-                                onClick={() => copySlackLink(selectedChannel, message.message_ts)}
+                                onClick={() => copySlackLink(selectedChannel, message.timestamp)}
                               >
                                 <Copy className="h-3 w-3" />
                               </Button>
@@ -377,7 +324,7 @@ export function SlackPane() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 w-6 p-0"
-                                onClick={() => openInSlack(selectedChannel, message.message_ts)}
+                                onClick={() => openInSlack(selectedChannel, message.timestamp)}
                               >
                                 <ExternalLink className="h-3 w-3" />
                               </Button>
