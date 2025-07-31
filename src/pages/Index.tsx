@@ -9,6 +9,7 @@ import { ToDo } from "@/components/ToDoCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleCalendarService, GoogleCalendarEvent } from '@/integrations/google/calendar';
+import { ChatBot } from '@/components/ChatBot';
 
 // Sample data for demo purposes
 const sampleCalendarEvents = [
@@ -300,6 +301,14 @@ const Index = () => {
           </div>
         </div>
       </main>
+      
+      <ChatBot 
+        dashboardContext={{
+          todos,
+          calendarEvents: isGoogleConnected ? calendarEvents : [],
+          slackMentions: isSlackConnected ? sampleSlackMentions : []
+        }}
+      />
     </div>
   );
 };
