@@ -34,7 +34,7 @@ serve(async (req) => {
       'users:read'
     ].join(' ');
 
-    const redirectUri = `${new URL(req.url).origin}/functions/v1/slack-oauth-callback`;
+    const redirectUri = `https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth-callback`;
     
     const slackAuthUrl = new URL('https://slack.com/oauth/v2/authorize');
     slackAuthUrl.searchParams.set('client_id', clientId);
