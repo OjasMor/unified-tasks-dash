@@ -3,7 +3,8 @@ import { Header } from "@/components/Header";
 import { ToDoColumn } from "@/components/ToDoColumn";
 import { CalendarColumn } from "@/components/CalendarColumn";
 import { SlackColumn } from "@/components/SlackColumn";
-import { JiraColumn } from "@/components/JiraColumn";
+import { JiraAssignedIssues } from "@/components/JiraAssignedIssues";
+import { JiraAllIssues } from "@/components/JiraAllIssues";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ToDo } from "@/components/ToDoCard";
@@ -52,11 +53,11 @@ const Index = () => {
   
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isSlackConnected, setIsSlackConnected] = useState(false);
-  const [isJiraConnected, setIsJiraConnected] = useState(false);
+  
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [slackMentions, setSlackMentions] = useState<SlackMention[]>([]);
-  const [jiraIssues, setJiraIssues] = useState<any[]>([]);
+  
   const [slackData, setSlackData] = useState<{
     channels: any[];
     messages: any[];
@@ -252,17 +253,13 @@ const Index = () => {
     });
   };
 
-  const handleJiraDataUpdate = (issues: any[]) => {
-    setJiraIssues(issues);
-    setIsJiraConnected(issues.length > 0 || isJiraConnected);
-  };
 
   return (
     <div className="min-h-screen bg-background">
         <Header 
           isGoogleConnected={isGoogleConnected} 
           isSlackConnected={isSlackConnected}
-          isJiraConnected={isJiraConnected}
+          isJiraConnected={true}
           onConnectGoogle={handleConnectGoogle} 
           onConnectSlack={handleConnectSlack}
         />
@@ -288,7 +285,13 @@ const Index = () => {
             onSlackDataUpdate={setSlackData}
           />
 
-          <JiraColumn onJiraDataUpdate={handleJiraDataUpdate} />
+          <JiraAssignedIssues />
+        </div>
+        
+        <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-2 gap-6 mt-6">
+          <div className="xl:col-span-4 lg:col-span-2">
+            <JiraAllIssues />
+          </div>
         </div>
       </main>
       
@@ -297,7 +300,7 @@ const Index = () => {
           todos,
           calendarEvents: isGoogleConnected ? calendarEvents : [],
           slackMentions: slackMentions,
-          jiraIssues,
+          jiraIssues: [],
           slackData: slackData
         }}
       />
