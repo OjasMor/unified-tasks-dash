@@ -40,7 +40,7 @@ const formatMessage = (text: string) => {
         </div>
       );
     }
-    
+
     // Handle bold text (**text**)
     const boldRegex = /\*\*(.*?)\*\*/g;
     const parts = line.split(boldRegex);
@@ -48,7 +48,7 @@ const formatMessage = (text: string) => {
       if (partIndex % 2 === 1) {
         return <strong key={partIndex} className="font-semibold">{part}</strong>;
       }
-      
+
       // Handle links
       const urlRegex = /(https?:\/\/[^\s)]+)/g;
       const linkParts = part.split(urlRegex);
@@ -69,7 +69,7 @@ const formatMessage = (text: string) => {
         return linkPart;
       });
     });
-    
+
     return (
       <div key={index} className={index < lines.length - 1 ? "mb-1" : ""}>
         {formattedLine}
@@ -219,11 +219,10 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
                   className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] p-3 rounded-lg ${
-                      message.sender === 'user'
+                    className={`max-w-[85%] p-3 rounded-lg ${message.sender === 'user'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground'
-                    }`}
+                      }`}
                   >
                     <div className="text-sm whitespace-pre-wrap break-words">
                       {formatMessage(message.text)}
@@ -258,7 +257,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
                 disabled={isLoading}
                 className="flex-1 text-xs"
               >
-                Summary My Day
+                Summarize
               </Button>
               <Button
                 variant="outline"
