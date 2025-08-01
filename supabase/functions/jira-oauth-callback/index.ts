@@ -66,8 +66,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const jiraClientId = Deno.env.get('JIRA_CLIENT_ID')!;
     const jiraClientSecret = Deno.env.get('JIRA_CLIENT_SECRET')!;
-    // Use the React callback page URL instead of the edge function URL
-    const jiraRedirectUri = `${supabaseUrl.replace('https://dggmyssboghmwytvuuqq.supabase.co', 'https://dggmyssboghmwytvuuqq.lovableproject.com')}/jira-oauth-callback`;
+    const jiraRedirectUri = Deno.env.get('JIRA_REDIRECT_URI')!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
