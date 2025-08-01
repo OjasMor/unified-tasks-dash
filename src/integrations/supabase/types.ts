@@ -461,6 +461,10 @@ export type Database = {
           team_name: string
         }[]
       }
+      has_jira_connection: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       has_slack_connection: {
         Args: { p_user_id: string }
         Returns: boolean
