@@ -14,6 +14,198 @@ export type Database = {
   }
   public: {
     Tables: {
+      jira_issues: {
+        Row: {
+          assignee_account_id: string | null
+          assignee_display_name: string | null
+          cloud_id: string
+          created_at: string
+          created_at_jira: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          issue_key: string
+          issue_type: string
+          issue_url: string | null
+          jira_issue_id: string
+          priority_id: string | null
+          priority_name: string | null
+          project_key: string
+          project_name: string
+          reporter_account_id: string | null
+          status_category: string | null
+          status_name: string
+          summary: string
+          updated_at: string
+          updated_at_jira: string | null
+          user_id: string
+        }
+        Insert: {
+          assignee_account_id?: string | null
+          assignee_display_name?: string | null
+          cloud_id: string
+          created_at?: string
+          created_at_jira?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          issue_key: string
+          issue_type: string
+          issue_url?: string | null
+          jira_issue_id: string
+          priority_id?: string | null
+          priority_name?: string | null
+          project_key: string
+          project_name: string
+          reporter_account_id?: string | null
+          status_category?: string | null
+          status_name: string
+          summary: string
+          updated_at?: string
+          updated_at_jira?: string | null
+          user_id: string
+        }
+        Update: {
+          assignee_account_id?: string | null
+          assignee_display_name?: string | null
+          cloud_id?: string
+          created_at?: string
+          created_at_jira?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          issue_key?: string
+          issue_type?: string
+          issue_url?: string | null
+          jira_issue_id?: string
+          priority_id?: string | null
+          priority_name?: string | null
+          project_key?: string
+          project_name?: string
+          reporter_account_id?: string | null
+          status_category?: string | null
+          status_name?: string
+          summary?: string
+          updated_at?: string
+          updated_at_jira?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jira_oauth_tokens: {
+        Row: {
+          access_token: string
+          cloud_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          scope: string
+          site_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          cloud_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          scope: string
+          site_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          cloud_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          scope?: string
+          site_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jira_projects: {
+        Row: {
+          cloud_id: string
+          created_at: string
+          id: string
+          jira_project_id: string
+          lead_account_id: string | null
+          project_key: string
+          project_name: string
+          project_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cloud_id: string
+          created_at?: string
+          id?: string
+          jira_project_id: string
+          lead_account_id?: string | null
+          project_key: string
+          project_name: string
+          project_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cloud_id?: string
+          created_at?: string
+          id?: string
+          jira_project_id?: string
+          lead_account_id?: string | null
+          project_key?: string
+          project_name?: string
+          project_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jira_sync_status: {
+        Row: {
+          cloud_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          issues_synced: number | null
+          last_sync_at: string
+          sync_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cloud_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          issues_synced?: number | null
+          last_sync_at?: string
+          sync_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cloud_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          issues_synced?: number | null
+          last_sync_at?: string
+          sync_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       slack_conversations: {
         Row: {
           conversation_id: string
