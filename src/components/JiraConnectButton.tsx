@@ -29,34 +29,61 @@ export const JiraConnectButton = ({ onConnectionSuccess }: JiraConnectButtonProp
         'width=600,height=700,scrollbars=yes,resizable=yes'
       );
 
-      // Listen for OAuth completion
-      const checkPopup = setInterval(() => {
-        try {
-          if (popup?.closed) {
-            clearInterval(checkPopup);
-            setIsConnecting(false);
+      // Listen for messages from the popup
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'JIRA_OAUTH_SUCCESS' && event.data.code) {
+          try {
+            // Exchange code for tokens
+            const { data: tokenData, error: tokenError } = await supabase.functions.invoke('jira-oauth-callback', {
+              body: { action: 'oauth_callback', code: event.data.code, state: event.data.state }
+            });
+
+            if (tokenError) throw tokenError;
+
+            // Associate tokens with user and fetch issues
+            const { data: fetchData, error: fetchError } = await supabase.functions.invoke('jira-oauth-callback', {
+              body: { action: 'associate_and_fetch', tokenId: tokenData.tokenId }
+            });
             
-            // Check if connection was successful by trying to fetch issues
-            setTimeout(async () => {
-              try {
-                const { data: fetchData, error: fetchError } = await supabase.functions.invoke('jira-oauth-callback', {
-                  body: { action: 'fetch_issues' }
-                });
-                
-                if (fetchError) throw fetchError;
-                
-                toast({
-                  title: "Jira Connected Successfully",
-                  description: `Synced ${fetchData.issuesCount} issues from your Jira workspace.`,
-                });
-                onConnectionSuccess();
-              } catch (err) {
-                console.log('Issues fetch failed, connection might not be complete');
-              }
-            }, 1000);
+            if (fetchError) throw fetchError;
+            
+            toast({
+              title: "Jira Connected Successfully",
+              description: `Synced ${fetchData.issuesCount} issues from your Jira workspace.`,
+            });
+            onConnectionSuccess();
+          } catch (err) {
+            console.error('Error completing Jira connection:', err);
+            toast({
+              title: "Connection Failed",
+              description: "Failed to complete Jira connection. Please try again.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsConnecting(false);
+            window.removeEventListener('message', handleMessage);
           }
-        } catch (e) {
-          // Cross-origin error when popup is still open
+        } else if (event.data.type === 'JIRA_OAUTH_ERROR') {
+          toast({
+            title: "Connection Failed",
+            description: event.data.error || "Failed to connect to Jira. Please try again.",
+            variant: "destructive",
+          });
+          setIsConnecting(false);
+          window.removeEventListener('message', handleMessage);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Also check if popup is closed manually
+      const checkPopup = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkPopup);
+          setIsConnecting(false);
+          window.removeEventListener('message', handleMessage);
         }
       }, 1000);
 

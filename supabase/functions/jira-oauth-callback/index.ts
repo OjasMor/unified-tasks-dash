@@ -87,7 +87,7 @@ serve(async (req) => {
     }
 
     if (action === 'oauth_callback') {
-      // Exchange code for access token
+      // Exchange code for access token (no auth required for this step)
       const tokenResponse = await fetch('https://auth.atlassian.com/oauth/token', {
         method: 'POST',
         headers: {
@@ -129,7 +129,38 @@ serve(async (req) => {
 
       const jiraSite = resources[0]; // Use the first available site
 
-      // Get current user from the authorization header
+      // Store tokens temporarily with a unique ID
+      const tokenId = crypto.randomUUID();
+      
+      const { error: insertError } = await supabase
+        .from('jira_oauth_tokens')
+        .insert({
+          id: tokenId,
+          user_id: '00000000-0000-0000-0000-000000000000', // Temporary placeholder
+          access_token: accessToken,
+          refresh_token: tokenData.refresh_token,
+          cloud_id: jiraSite.id,
+          site_url: jiraSite.url,
+          scope: tokenData.scope,
+          expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+        });
+
+      if (insertError) {
+        console.error('Error storing Jira OAuth token:', insertError);
+        throw new Error('Failed to store OAuth token');
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        tokenId: tokenId,
+        siteName: jiraSite.name 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'associate_and_fetch') {
+      // Get the authenticated user
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         throw new Error('No authorization header');
@@ -143,28 +174,131 @@ serve(async (req) => {
         throw new Error('Failed to get user');
       }
 
-      // Store OAuth token and site info
-      const { error: insertError } = await supabase
+      const { tokenId } = req.method === 'GET' ? 
+        Object.fromEntries(new URL(req.url).searchParams) : 
+        await req.json();
+
+      if (!tokenId) {
+        throw new Error('Token ID is required');
+      }
+
+      // Update the temporary token record with the real user ID
+      const { error: updateError } = await supabase
         .from('jira_oauth_tokens')
+        .update({ user_id: user.id })
+        .eq('id', tokenId)
+        .eq('user_id', '00000000-0000-0000-0000-000000000000');
+
+      if (updateError) {
+        console.error('Error associating token with user:', updateError);
+        throw new Error('Failed to associate token with user');
+      }
+
+      // Continue with fetch_issues logic...
+      // Get the updated token data
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('jira_oauth_tokens')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (tokenError || !tokenData) {
+        throw new Error('No Jira OAuth token found after association');
+      }
+
+      // Get user profile from Jira to find accountId
+      const profileResponse = await fetch(`${tokenData.site_url}/rest/api/3/myself`, {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error('Failed to get user profile from Jira');
+      }
+
+      const userProfile = await profileResponse.json();
+      const accountId = userProfile.accountId;
+
+      // Fetch issues assigned to the user
+      const jql = `assignee = "${accountId}" AND status != "Done" ORDER BY updated DESC`;
+      const issuesResponse = await fetch(
+        `${tokenData.site_url}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=50&fields=summary,status,priority,assignee,project,duedate,updated`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (!issuesResponse.ok) {
+        throw new Error('Failed to fetch issues from Jira');
+      }
+
+      const issuesData = await issuesResponse.json();
+      const issues: JiraIssue[] = issuesData.issues;
+
+      // Store issues in database
+      const issueInserts = issues.map(issue => ({
+        user_id: user.id,
+        issue_key: issue.key,
+        jira_issue_id: issue.id,
+        summary: issue.fields.summary,
+        status_name: issue.fields.status.name,
+        priority_name: issue.fields.priority?.name || null,
+        assignee_display_name: issue.fields.assignee?.displayName || null,
+        project_name: issue.fields.project.name,
+        due_date: issue.fields.duedate || null,
+        issue_url: `${tokenData.site_url}/browse/${issue.key}`,
+        updated_at_jira: new Date(issue.fields.updated).toISOString(),
+        cloud_id: tokenData.cloud_id,
+        project_key: issue.key.split('-')[0],
+        issue_type: 'Task'
+      }));
+
+      // Clear existing issues for this user and insert new ones
+      const { error: deleteError } = await supabase
+        .from('jira_issues')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.error('Error deleting old Jira issues:', deleteError);
+      }
+
+      if (issueInserts.length > 0) {
+        const { error: insertError } = await supabase
+          .from('jira_issues')
+          .insert(issueInserts);
+
+        if (insertError) {
+          console.error('Error inserting Jira issues:', insertError);
+          throw new Error('Failed to store Jira issues');
+        }
+      }
+
+      // Update sync status
+      const { error: syncError } = await supabase
+        .from('jira_sync_status')
         .upsert({
           user_id: user.id,
-          access_token: accessToken,
-          refresh_token: tokenData.refresh_token,
-          site_id: jiraSite.id,
-          site_url: jiraSite.url,
-          site_name: jiraSite.name,
-          scope: tokenData.scope,
-          expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+          cloud_id: tokenData.cloud_id,
+          last_sync_at: new Date().toISOString(),
+          issues_synced: issues.length,
         }, {
           onConflict: 'user_id'
         });
 
-      if (insertError) {
-        console.error('Error storing Jira OAuth token:', insertError);
-        throw new Error('Failed to store OAuth token');
+      if (syncError) {
+        console.error('Error updating sync status:', syncError);
       }
 
-      return new Response(JSON.stringify({ success: true, siteName: jiraSite.name }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        issuesCount: issues.length
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
