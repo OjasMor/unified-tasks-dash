@@ -100,13 +100,14 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
     }
   }, [messages]);
 
-  const handleSendMessage = async (customMessage?: string) => {
+  const handleSendMessage = async (customMessage?: string, displayMessage?: string) => {
     const messageToSend = customMessage || inputValue;
+    const messageToDisplay = displayMessage || messageToSend;
     if (!messageToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: messageToSend,
+      text: messageToDisplay,
       sender: 'user',
       timestamp: new Date()
     };
@@ -253,7 +254,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleSendMessage("Give me a high level and detailed summary of my day including tasks pending, done, calendar invites, and slack summary")}
+                onClick={() => handleSendMessage("Give me a high level and detailed summary of my day including tasks pending, done, calendar invites, and slack summary", "Summarize my day")}
                 disabled={isLoading}
                 className="flex-1 text-xs"
               >
@@ -262,7 +263,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleSendMessage("Use common sense and my calendar info and slack mentions to prioritize important tasks for my day. Clearly mention parts of the day that are not booked up")}
+                onClick={() => handleSendMessage("Use common sense and my calendar info and slack mentions to prioritize important tasks for my day. Clearly mention parts of the day that are not booked up", "Prioritize my day")}
                 disabled={isLoading}
                 className="flex-1 text-xs"
               >
