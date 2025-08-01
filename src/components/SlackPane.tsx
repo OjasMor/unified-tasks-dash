@@ -25,7 +25,25 @@ interface SlackMessage {
   user_image?: string;
 }
 
-export function SlackPane() {
+interface SlackMention {
+  id: string;
+  conversation_id: string;
+  conversation_name: string;
+  conversation_type: string;
+  is_channel: boolean;
+  message_ts: string;
+  message_text: string;
+  mentioned_by_user_id: string;
+  mentioned_by_username: string;
+  permalink: string;
+  slack_created_at: string;
+}
+
+interface SlackPaneProps {
+  onMentionsUpdate?: (mentions: SlackMention[]) => void;
+}
+
+export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [channels, setChannels] = useState<SlackChannel[]>([]);
@@ -405,7 +423,7 @@ export function SlackPane() {
         </TabsContent>
 
         <TabsContent value="mentions">
-          <SlackMentions />
+          <SlackMentions onMentionsUpdate={onMentionsUpdate} />
         </TabsContent>
       </Tabs>
     </div>

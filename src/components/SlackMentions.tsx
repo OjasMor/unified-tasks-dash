@@ -22,9 +22,10 @@ interface SlackMention {
 
 interface SlackMentionsProps {
   userId?: string;
+  onMentionsUpdate?: (mentions: SlackMention[]) => void;
 }
 
-export function SlackMentions({ userId }: SlackMentionsProps) {
+export function SlackMentions({ userId, onMentionsUpdate }: SlackMentionsProps) {
   const { user } = useAuth();
   const [mentions, setMentions] = useState<SlackMention[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +39,13 @@ export function SlackMentions({ userId }: SlackMentionsProps) {
   useEffect(() => {
     checkSlackConnection();
   }, [currentUserId]);
+
+  // Notify parent component when mentions change
+  useEffect(() => {
+    if (onMentionsUpdate) {
+      onMentionsUpdate(mentions);
+    }
+  }, [mentions, onMentionsUpdate]);
 
   const checkSlackConnection = async () => {
     try {

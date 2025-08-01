@@ -11,57 +11,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { GoogleCalendarService, GoogleCalendarEvent } from '@/integrations/google/calendar';
 import { ChatBot } from '@/components/ChatBot';
 
-// Sample data for demo purposes
-const sampleCalendarEvents = [
-  {
-    id: "1",
-    title: "Team Standup",
-    startTime: "9:00 AM",
-    endTime: "9:30 AM",
-    link: "https://calendar.google.com"
-  },
-  {
-    id: "2", 
-    title: "Product Review Meeting",
-    startTime: "2:00 PM",
-    endTime: "3:30 PM",
-    link: "https://calendar.google.com"
-  },
-  {
-    id: "3",
-    title: "1:1 with Manager",
-    startTime: "4:00 PM", 
-    endTime: "4:30 PM",
-    link: "https://calendar.google.com"
-  }
-];
-
-const sampleSlackMentions = [
-  {
-    id: "1",
-    message: "@john can you review the new designs? We need your feedback before the client meeting tomorrow.",
-    sender: "Sarah Chen",
-    channel: "design-team",
-    timestamp: "2 hours ago",
-    link: "https://slack.com"
-  },
-  {
-    id: "2",
-    message: "Hey @john, the API endpoint is ready for testing. Let me know if you need any help integrating it.",
-    sender: "Mike Rodriguez", 
-    channel: "development",
-    timestamp: "4 hours ago",
-    link: "https://slack.com"
-  },
-  {
-    id: "3",
-    message: "@john don't forget about the quarterly planning session next week. Please prepare your team's roadmap.",
-    sender: "Lisa Park",
-    channel: "management",
-    timestamp: "1 day ago", 
-    link: "https://slack.com"
-  }
-];
+interface SlackMention {
+  id: string;
+  conversation_id: string;
+  conversation_name: string;
+  conversation_type: string;
+  is_channel: boolean;
+  message_ts: string;
+  message_text: string;
+  mentioned_by_user_id: string;
+  mentioned_by_username: string;
+  permalink: string;
+  slack_created_at: string;
+}
 
 const Index = () => {
   const { user, loading, signOut } = useAuth();
@@ -91,6 +53,7 @@ const Index = () => {
   const [isSlackConnected, setIsSlackConnected] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [slackMentions, setSlackMentions] = useState<SlackMention[]>([]);
   const { toast } = useToast();
 
   const [authLoading, setAuthLoading] = useState(false);
@@ -293,7 +256,7 @@ const Index = () => {
           
           {/* Slack Column - 30% on large screens */}
           <div className="lg:col-span-3">
-            <SlackColumn />
+            <SlackColumn onMentionsUpdate={setSlackMentions} />
           </div>
         </div>
       </main>
@@ -302,7 +265,7 @@ const Index = () => {
         dashboardContext={{
           todos,
           calendarEvents: isGoogleConnected ? calendarEvents : [],
-          slackMentions: isSlackConnected ? sampleSlackMentions : []
+          slackMentions: slackMentions
         }}
       />
     </div>
