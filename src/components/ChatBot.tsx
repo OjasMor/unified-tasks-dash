@@ -100,12 +100,13 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
     }
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleSendMessage = async (customMessage?: string) => {
+    const messageToSend = customMessage || inputValue;
+    if (!messageToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputValue,
+      text: messageToSend,
       sender: 'user',
       timestamp: new Date()
     };
@@ -117,7 +118,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
     try {
       const { data, error } = await supabase.functions.invoke('chat-assistant', {
         body: {
-          message: inputValue,
+          message: messageToSend,
           context: dashboardContext
         }
       });
@@ -125,7 +126,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
       if (error) throw error;
 
       console.log('📤 Chat context sent:', {
-        messageLength: inputValue.length,
+        messageLength: messageToSend.length,
         todosCount: dashboardContext.todos?.length || 0,
         calendarEventsCount: dashboardContext.calendarEvents?.length || 0,
         slackMentionsCount: dashboardContext.slackMentions?.length || 0,
@@ -179,7 +180,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-96 h-[500px] bg-card border border-border rounded-lg shadow-lg flex flex-col">
+    <div className="fixed bottom-6 right-6 z-50 w-[450px] h-[600px] bg-card border border-border rounded-lg shadow-lg flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
@@ -246,8 +247,32 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
             </div>
           </ScrollArea>
 
+          {/* Pre-filled Questions */}
+          <div className="px-4 pb-3 border-t border-border">
+            <div className="flex gap-2 mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSendMessage("Give me a high level and detailed summary of my day including tasks pending, done, calendar invites, and slack summary")}
+                disabled={isLoading}
+                className="flex-1 text-xs"
+              >
+                Summary My Day
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSendMessage("Use common sense and my calendar info and slack mentions to prioritize important tasks for my day. Clearly mention parts of the day that are not booked up")}
+                disabled={isLoading}
+                className="flex-1 text-xs"
+              >
+                Prioritize My Day
+              </Button>
+            </div>
+          </div>
+
           {/* Input */}
-          <div className="p-4 border-t border-border">
+          <div className="px-4 pb-4">
             <div className="flex gap-2">
               <Input
                 value={inputValue}
@@ -258,7 +283,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
                 disabled={isLoading}
               />
               <Button
-                onClick={handleSendMessage}
+                onClick={() => handleSendMessage()}
                 disabled={!inputValue.trim() || isLoading}
                 size="icon"
               >
