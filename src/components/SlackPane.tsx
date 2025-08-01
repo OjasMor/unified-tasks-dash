@@ -59,6 +59,8 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [mentions, setMentions] = useState<SlackMention[]>([]);
+  const [isLoadingMentions, setIsLoadingMentions] = useState(false);
+  const [activeTab, setActiveTab] = useState('channels');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
 
   const fetchMentions = async () => {
     try {
+      setIsLoadingMentions(true);
       console.log('🔄 Fetching all messages from all channels to find mentions...');
 
       // Get user's first and last name from their profile
@@ -197,6 +200,21 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
 
     } catch (error) {
       console.error('❌ Error fetching mentions:', error);
+      toast({
+        title: "Error Fetching Mentions",
+        description: error instanceof Error ? error.message : "Failed to fetch mentions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingMentions(false);
+    }
+  };
+
+  // Handle tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'mentions' && isConnected) {
+      fetchMentions();
     }
   };
 
@@ -562,7 +580,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
         </div>
       </div>
 
-      <Tabs defaultValue="channels" className="w-full">
+      <Tabs defaultValue="channels" className="w-full" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="mentions" className="flex items-center gap-1">
@@ -703,7 +721,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
             onMentionsUpdate={onMentionsUpdate}
             mentions={mentions}
             onRefreshMentions={fetchMentions}
-            isRefreshing={false}
+            isRefreshing={isLoadingMentions}
           />
         </TabsContent>
       </Tabs>
