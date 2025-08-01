@@ -28,12 +28,12 @@ interface SlackMentionsProps {
   isRefreshing?: boolean;
 }
 
-export function SlackMentions({ 
-  userId, 
-  onMentionsUpdate, 
-  mentions = [], 
+export function SlackMentions({
+  userId,
+  onMentionsUpdate,
+  mentions = [],
   onRefreshMentions,
-  isRefreshing = false 
+  isRefreshing = false
 }: SlackMentionsProps) {
   const { user } = useAuth();
   const [hasConnection, setHasConnection] = useState(false);
@@ -55,14 +55,14 @@ export function SlackMentions({
 
   const checkSlackConnection = async () => {
     try {
-      // Test bot token connection by fetching mentions
+      // Test bot token connection by fetching channels
       const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'fetch_mentions',
+          action: 'fetch_channels',
           userId: currentUserId
         })
       });
@@ -93,7 +93,7 @@ export function SlackMentions({
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) {
       return 'Just now';
     } else if (diffInHours < 24) {
@@ -192,7 +192,7 @@ export function SlackMentions({
                     <span>•</span>
                     <span>{formatTimestamp(mention.slack_created_at)}</span>
                   </div>
-                  
+
                   <p className="text-sm leading-relaxed">
                     {mention.message_text}
                   </p>
@@ -214,4 +214,4 @@ export function SlackMentions({
       )}
     </div>
   );
-} 
+}

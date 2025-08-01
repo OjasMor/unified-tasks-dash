@@ -97,39 +97,180 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
 
   const fetchMentions = async () => {
     try {
-      console.log('🔄 Fetching mentions from Slack...');
-      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+      console.log('🔄 Fetching all messages from all channels to find mentions...');
+
+      // Get user's first and last name from their profile
+      const { firstName, lastName } = getUserFullName(user);
+      console.log('👤 User name:', { firstName, lastName });
+
+      // First, get all channels
+      const channelsResponse = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'fetch_mentions',
+          action: 'fetch_channels',
           userId: user?.id || 'test-user'
         })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('📥 Mentions response:', result);
-        if (result.success) {
-          setMentions(result.mentions || []);
-          console.log('✅ Mentions fetched:', result.mentions?.length || 0);
-        } else {
-          console.error('❌ Failed to fetch mentions:', result.error);
-        }
-      } else {
-        console.error('❌ HTTP error fetching mentions:', response.status);
+      if (!channelsResponse.ok) {
+        throw new Error('Failed to fetch channels');
       }
+
+      const channelsData = await channelsResponse.json();
+      if (!channelsData.success) {
+        throw new Error(channelsData.error || 'Failed to fetch channels');
+      }
+
+      const channels = channelsData.channels || [];
+      console.log(`📋 Found ${channels.length} channels to scan`);
+
+      // Fetch messages from all channels
+      const allMessages: any[] = [];
+
+      for (const channel of channels) {
+        try {
+          console.log(`📝 Fetching messages from channel: ${channel.conversation_name}`);
+
+          const messagesResponse = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'fetch_messages',
+              userId: user?.id || 'test-user',
+              channelId: channel.conversation_id
+            })
+          });
+
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            if (messagesData.success && messagesData.messages) {
+              // Add channel info to each message
+              const messagesWithChannel = messagesData.messages.map((msg: any) => ({
+                ...msg,
+                conversation_id: channel.conversation_id,
+                conversation_name: channel.conversation_name,
+                conversation_type: channel.conversation_type
+              }));
+              allMessages.push(...messagesWithChannel);
+            }
+          }
+
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          console.error(`Error fetching messages from channel ${channel.conversation_name}:`, error);
+        }
+      }
+
+      console.log(`📊 Total messages fetched: ${allMessages.length}`);
+
+      // Filter messages that contain mentions of the user
+      const mentions = allMessages.filter(message =>
+        containsUserMention(message.text, firstName, lastName)
+      );
+
+      console.log(`👤 Found ${mentions.length} mentions out of ${allMessages.length} messages`);
+
+      // Format mentions to match the expected structure
+      const formattedMentions = mentions.map(message => ({
+        id: `${message.conversation_id}-${message.message_ts}`,
+        conversation_id: message.conversation_id,
+        conversation_name: message.conversation_name,
+        conversation_type: message.conversation_type,
+        is_channel: message.conversation_type === 'public_channel' || message.conversation_type === 'private_channel',
+        message_ts: message.message_ts,
+        message_text: message.text,
+        mentioned_by_user_id: message.user_slack_id,
+        mentioned_by_username: message.username,
+        permalink: `https://slack.com/app_redirect?channel=${message.conversation_id}&message_ts=${message.message_ts}`,
+        slack_created_at: message.slack_created_at
+      }));
+
+      setMentions(formattedMentions);
+      console.log('✅ Mentions processed and set');
+
     } catch (error) {
       console.error('❌ Error fetching mentions:', error);
     }
   };
 
+  // Helper function to extract user's first and last name
+  const getUserFullName = (user: any): { firstName: string; lastName: string } => {
+    // Try to get from user_metadata first
+    if (user?.user_metadata) {
+      const metadata = user.user_metadata;
+      if (metadata.full_name) {
+        const nameParts = metadata.full_name.split(' ');
+        return {
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || ''
+        };
+      }
+      if (metadata.first_name && metadata.last_name) {
+        return {
+          firstName: metadata.first_name,
+          lastName: metadata.last_name
+        };
+      }
+    }
+
+    // Try to get from email (common pattern: firstname.lastname@domain.com)
+    if (user?.email) {
+      const emailName = user.email.split('@')[0];
+      const nameParts = emailName.split('.');
+      if (nameParts.length >= 2) {
+        return {
+          firstName: nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1),
+          lastName: nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1)
+        };
+      }
+    }
+
+    // Fallback to email username
+    if (user?.email) {
+      const emailName = user.email.split('@')[0];
+      return {
+        firstName: emailName.charAt(0).toUpperCase() + emailName.slice(1),
+        lastName: ''
+      };
+    }
+
+    // Final fallback
+    return {
+      firstName: 'User',
+      lastName: ''
+    };
+  };
+
+  // Helper function to check if a message contains a mention of the user
+  const containsUserMention = (messageText: string, firstName: string, lastName: string): boolean => {
+    if (!messageText) return false;
+
+    // Create patterns to match @FirstName LastName format
+    const patterns = [
+      new RegExp(`@${firstName}\\s+${lastName}`, 'i'),
+      new RegExp(`@${firstName}`, 'i'),
+      new RegExp(`@${firstName}${lastName}`, 'i')
+    ];
+
+    // If no last name, just check for first name
+    if (!lastName) {
+      patterns.push(new RegExp(`@${firstName}\\b`, 'i'));
+    }
+
+    return patterns.some(pattern => pattern.test(messageText));
+  };
+
   const checkSlackConnection = async () => {
     try {
       setIsLoading(true);
-      
+
       // Test bot token connection by fetching channels
       const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
         method: 'POST',
@@ -180,7 +321,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
       }
 
       const data = await response.json();
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
@@ -196,7 +337,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
       })) || [];
 
       setChannels(slackChannels);
-      
+
       // Load messages for all channels on startup
       await loadAllChannelMessages(slackChannels);
     } catch (error) {
@@ -230,7 +371,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
         }
 
         const data = await response.json();
-        
+
         if (data.error) {
           console.error(`Error loading messages for channel ${channel.name}:`, data.error);
           return { channelId: channel.id, messages: [] };
@@ -253,7 +394,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
 
     const results = await Promise.all(messagePromises);
     const messagesMap: Record<string, SlackMessage[]> = {};
-    
+
     results.forEach(({ channelId, messages }) => {
       messagesMap[channelId] = messages;
     });
@@ -287,7 +428,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
         }
 
         const data = await response.json();
-        
+
         if (data.error) {
           throw new Error(data.error);
         }
@@ -337,7 +478,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
     // Generate actual Slack deep links
     const baseUrl = `https://slack.com/app_redirect?channel=${channel.id}`;
     const url = messageTs ? `${baseUrl}&message_ts=${messageTs}` : baseUrl;
-    
+
     navigator.clipboard.writeText(url);
     toast({
       title: "Link Copied",
@@ -439,11 +580,10 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
                   {channels.map((channel) => (
                     <div
                       key={channel.id}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedChannel?.id === channel.id
-                          ? 'bg-accent border-accent-foreground'
-                          : 'hover:bg-accent/50'
-                      }`}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${selectedChannel?.id === channel.id
+                        ? 'bg-accent border-accent-foreground'
+                        : 'hover:bg-accent/50'
+                        }`}
                       onClick={() => loadMessages(channel)}
                     >
                       <div className="flex items-center justify-between">
@@ -559,8 +699,8 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
         </TabsContent>
 
         <TabsContent value="mentions">
-          <SlackMentions 
-            onMentionsUpdate={onMentionsUpdate} 
+          <SlackMentions
+            onMentionsUpdate={onMentionsUpdate}
             mentions={mentions}
             onRefreshMentions={fetchMentions}
             isRefreshing={false}

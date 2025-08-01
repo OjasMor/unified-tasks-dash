@@ -339,7 +339,7 @@ serve(async (req) => {
 
     if (action === 'fetch_mentions') {
       console.log('🔄 Fetching mentions using bot token');
-      
+
       // Search for actual mentions using @ symbol and common mention patterns
       // This will find messages that contain @mentions, @here, @channel, etc.
       const searchQuery = '@here OR @channel OR @everyone OR @' // Search for various types of mentions
