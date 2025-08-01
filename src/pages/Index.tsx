@@ -3,8 +3,6 @@ import { Header } from "@/components/Header";
 import { ToDoColumn } from "@/components/ToDoColumn";
 import { CalendarColumn } from "@/components/CalendarColumn";
 import { SlackColumn } from "@/components/SlackColumn";
-import { JiraAssignedIssues } from "@/components/JiraAssignedIssues";
-import { JiraAllIssues } from "@/components/JiraAllIssues";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ToDo } from "@/components/ToDoCard";
@@ -259,13 +257,13 @@ const Index = () => {
         <Header 
           isGoogleConnected={isGoogleConnected} 
           isSlackConnected={isSlackConnected}
-          isJiraConnected={true}
+          
           onConnectGoogle={handleConnectGoogle} 
           onConnectSlack={handleConnectSlack}
         />
       
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 lg:grid-cols-2 gap-6">
           <ToDoColumn
             todos={todos}
             onAddTodo={handleAddTodo}
@@ -284,14 +282,6 @@ const Index = () => {
             onMentionsUpdate={setSlackMentions} 
             onSlackDataUpdate={setSlackData}
           />
-
-          <JiraAssignedIssues />
-        </div>
-        
-        <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-2 gap-6 mt-6">
-          <div className="xl:col-span-4 lg:col-span-2">
-            <JiraAllIssues />
-          </div>
         </div>
       </main>
       
@@ -300,7 +290,7 @@ const Index = () => {
           todos,
           calendarEvents: isGoogleConnected ? calendarEvents : [],
           slackMentions: slackMentions,
-          jiraIssues: [],
+          
           slackData: slackData
         }}
       />
