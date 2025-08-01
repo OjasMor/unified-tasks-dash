@@ -13,27 +13,12 @@ interface Message {
   timestamp: Date;
 }
 
-interface JiraIssue {
-  key: string;
-  summary: string;
-  status: string;
-  priority: string;
-  project: string;
-  projectKey: string;
-  assignee: string;
-  reporter: string;
-  dueDate: string | null;
-  created: string;
-  updated: string;
-  url: string;
-}
-
 interface ChatBotProps {
   dashboardContext: {
     todos: any[];
     calendarEvents: any[];
     slackMentions?: any[];
-    jiraIssues?: JiraIssue[];
+    jiraIssues?: any[];
     slackData?: {
       channels: any[];
       messages: any[];
@@ -150,7 +135,6 @@ export const ChatBot = ({ dashboardContext, onAddTask }: ChatBotProps) => {
         todosCount: dashboardContext.todos?.length || 0,
         calendarEventsCount: dashboardContext.calendarEvents?.length || 0,
         slackMentionsCount: dashboardContext.slackMentions?.length || 0,
-        jiraIssuesCount: dashboardContext.jiraIssues?.length || 0,
         slackData: {
           channelsCount: dashboardContext.slackData?.channels?.length || 0,
           messagesCount: dashboardContext.slackData?.messages?.length || 0,
@@ -245,8 +229,8 @@ export const ChatBot = ({ dashboardContext, onAddTask }: ChatBotProps) => {
                 >
                   <div
                     className={`max-w-[85%] p-3 rounded-lg ${message.sender === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
                       }`}
                   >
                     <div className="text-sm whitespace-pre-wrap break-words">
@@ -292,26 +276,6 @@ export const ChatBot = ({ dashboardContext, onAddTask }: ChatBotProps) => {
                 className="flex-1 text-xs"
               >
                 Prioritize My Day
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleSendMessage("Add tasks for me based on my assigned issues", "Add Jira Tasks")}
-                disabled={isLoading}
-                className="flex-1 text-xs"
-              >
-                Add Jira Tasks
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleSendMessage("Analyze my Jira issues and provide insights on priorities, deadlines, and workload distribution", "Analyze Jira Issues")}
-                disabled={isLoading}
-                className="flex-1 text-xs"
-              >
-                Analyze Jira Issues
               </Button>
             </div>
           </div>
