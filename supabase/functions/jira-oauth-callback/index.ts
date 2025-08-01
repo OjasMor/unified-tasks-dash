@@ -45,9 +45,23 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request data from JSON body only (no GET request handling)
-    const body = await req.json();
-    const { action, code, state, tokenId } = body;
+    // Parse request data - handle both JSON body and query parameters
+    let action, code, state, tokenId;
+    
+    if (req.method === 'GET') {
+      // Handle OAuth redirect from Jira (GET request with query params)
+      const url = new URL(req.url);
+      code = url.searchParams.get('code');
+      state = url.searchParams.get('state');
+      action = 'oauth_callback';
+    } else {
+      // Handle JSON requests from frontend
+      const body = await req.json();
+      action = body.action;
+      code = body.code;
+      state = body.state;
+      tokenId = body.tokenId;
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -74,7 +88,92 @@ serve(async (req) => {
     }
 
     if (action === 'oauth_callback') {
-      // Exchange code for access token (no auth required for this step)
+      console.log('🔄 Processing OAuth callback...');
+      
+      // Check if this is a GET request from Jira (popup flow)
+      if (req.method === 'GET') {
+        const url = new URL(req.url);
+        const error = url.searchParams.get('error');
+        
+        if (error) {
+          console.error('❌ OAuth error from Jira:', error);
+          return new Response(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Jira Connection Error</title></head>
+            <body>
+              <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+                <h2>Connection Error</h2>
+                <p>There was an error connecting to Jira: ${error}</p>
+                <script>
+                  window.opener?.postMessage({
+                    type: 'JIRA_OAUTH_ERROR',
+                    error: '${error}'
+                  }, window.location.origin);
+                  setTimeout(() => window.close(), 2000);
+                </script>
+              </div>
+            </body>
+            </html>
+          `, {
+            headers: { 'Content-Type': 'text/html' }
+          });
+        }
+
+        if (!code) {
+          console.error('❌ No authorization code received');
+          return new Response(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Jira Connection Error</title></head>
+            <body>
+              <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+                <h2>Connection Error</h2>
+                <p>No authorization code received from Jira</p>
+                <script>
+                  window.opener?.postMessage({
+                    type: 'JIRA_OAUTH_ERROR',
+                    error: 'No authorization code received'
+                  }, window.location.origin);
+                  setTimeout(() => window.close(), 2000);
+                </script>
+              </div>
+            </body>
+            </html>
+          `, {
+            headers: { 'Content-Type': 'text/html' }
+          });
+        }
+
+        // Success - return HTML that communicates back to parent window
+        console.log('✅ OAuth callback successful');
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Connecting to Jira...</title></head>
+          <body>
+            <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+              <h2>Connecting to Jira...</h2>
+              <p>Please wait while we complete the connection.</p>
+              <script>
+                console.log('🚀 Sending success message to parent window');
+                window.opener?.postMessage({
+                  type: 'JIRA_OAUTH_SUCCESS',
+                  code: '${code}',
+                  state: '${state}'
+                }, window.location.origin);
+                setTimeout(() => window.close(), 1000);
+              </script>
+            </div>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+
+      // Handle POST request (token exchange from frontend)
+      console.log('🔑 Exchanging code for access token...');
       const tokenResponse = await fetch('https://auth.atlassian.com/oauth/token', {
         method: 'POST',
         headers: {
@@ -117,12 +216,12 @@ serve(async (req) => {
       const jiraSite = resources[0]; // Use the first available site
 
       // Store tokens temporarily with a unique ID
-      const tokenId = crypto.randomUUID();
+      const newTokenId = crypto.randomUUID();
       
       const { error: insertError } = await supabase
         .from('jira_oauth_tokens')
         .insert({
-          id: tokenId,
+          id: newTokenId,
           user_id: '00000000-0000-0000-0000-000000000000', // Temporary placeholder
           access_token: accessToken,
           refresh_token: tokenData.refresh_token,
@@ -139,7 +238,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ 
         success: true, 
-        tokenId: tokenId,
+        tokenId: newTokenId,
         siteName: jiraSite.name 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -160,8 +259,6 @@ serve(async (req) => {
       if (userError || !user) {
         throw new Error('Failed to get user');
       }
-
-      const { tokenId } = body;
 
       if (!tokenId) {
         throw new Error('Token ID is required');
