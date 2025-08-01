@@ -18,6 +18,7 @@ interface ChatBotProps {
     todos: any[];
     calendarEvents: any[];
     slackMentions?: any[];
+    jiraIssues?: any[];
     slackData?: {
       channels: any[];
       messages: any[];

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, Check, Loader2, MessageSquare } from "lucide-react";
+import { Calendar, Check, Loader2, MessageSquare, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
@@ -9,6 +9,7 @@ const SUPABASE_URL = "https://dggmyssboghmwytvuuqq.supabase.co";
 interface HeaderProps {
   isGoogleConnected: boolean;
   isSlackConnected: boolean;
+  isJiraConnected: boolean;
   onConnectGoogle: () => void;
   onConnectSlack: () => void;
 }
@@ -16,6 +17,7 @@ interface HeaderProps {
 export function Header({ 
   isGoogleConnected, 
   isSlackConnected, 
+  isJiraConnected,
   onConnectGoogle, 
   onConnectSlack 
 }: HeaderProps) {
@@ -123,6 +125,24 @@ export function Header({
                 <>
                   <MessageSquare className="h-4 w-4" />
                   Connect Slack
+                </>
+              )}
+            </Button>
+
+            <Button 
+              variant={isJiraConnected ? "connected" : "connect"}
+              disabled={isJiraConnected}
+              className="gap-2"
+            >
+              {isJiraConnected ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Jira Connected
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="h-4 w-4" />
+                  Jira Available
                 </>
               )}
             </Button>
