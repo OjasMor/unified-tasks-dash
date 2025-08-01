@@ -14,7 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
-      slack_messages: {
+      slack_conversations: {
+        Row: {
+          conversation_id: string
+          conversation_name: string | null
+          conversation_purpose: string | null
+          conversation_topic: string | null
+          conversation_type: string
+          created_at: string | null
+          id: string
+          is_archived: boolean | null
+          is_member: boolean | null
+          last_message_text: string | null
+          last_message_ts: number | null
+          member_count: number | null
+          slack_team_id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id: string
+          conversation_name?: string | null
+          conversation_purpose?: string | null
+          conversation_topic?: string | null
+          conversation_type: string
+          created_at?: string | null
+          id?: string
+          is_archived?: boolean | null
+          is_member?: boolean | null
+          last_message_text?: string | null
+          last_message_ts?: number | null
+          member_count?: number | null
+          slack_team_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          conversation_name?: string | null
+          conversation_purpose?: string | null
+          conversation_topic?: string | null
+          conversation_type?: string
+          created_at?: string | null
+          id?: string
+          is_archived?: boolean | null
+          is_member?: boolean | null
+          last_message_text?: string | null
+          last_message_ts?: number | null
+          member_count?: number | null
+          slack_team_id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      slack_mentions: {
         Row: {
           conversation_id: string
           conversation_name: string | null
@@ -22,14 +76,15 @@ export type Database = {
           created_at: string | null
           id: string
           is_channel: boolean | null
+          mentioned_by_user_id: string
+          mentioned_by_username: string | null
+          mentioned_user_id: string
+          message_text: string | null
           message_ts: string
+          permalink: string | null
           slack_created_at: string | null
           slack_team_id: string
-          text: string | null
           user_id: string | null
-          user_image: string | null
-          user_slack_id: string
-          username: string | null
         }
         Insert: {
           conversation_id: string
@@ -38,14 +93,15 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_channel?: boolean | null
+          mentioned_by_user_id: string
+          mentioned_by_username?: string | null
+          mentioned_user_id: string
+          message_text?: string | null
           message_ts: string
+          permalink?: string | null
           slack_created_at?: string | null
           slack_team_id: string
-          text?: string | null
           user_id?: string | null
-          user_image?: string | null
-          user_slack_id: string
-          username?: string | null
         }
         Update: {
           conversation_id?: string
@@ -54,14 +110,66 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_channel?: boolean | null
+          mentioned_by_user_id?: string
+          mentioned_by_username?: string | null
+          mentioned_user_id?: string
+          message_text?: string | null
           message_ts?: string
+          permalink?: string | null
           slack_created_at?: string | null
           slack_team_id?: string
-          text?: string | null
           user_id?: string | null
-          user_image?: string | null
-          user_slack_id?: string
-          username?: string | null
+        }
+        Relationships: []
+      }
+      slack_messages: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          id: string
+          message_id: string
+          message_text: string | null
+          message_ts: number
+          message_type: string | null
+          parent_user_id: string | null
+          permalink: string | null
+          slack_team_id: string
+          slack_user_id: string
+          thread_ts: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          message_id: string
+          message_text?: string | null
+          message_ts: number
+          message_type?: string | null
+          parent_user_id?: string | null
+          permalink?: string | null
+          slack_team_id: string
+          slack_user_id: string
+          thread_ts?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          message_id?: string
+          message_text?: string | null
+          message_ts?: number
+          message_type?: string | null
+          parent_user_id?: string | null
+          permalink?: string | null
+          slack_team_id?: string
+          slack_user_id?: string
+          thread_ts?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -73,7 +181,6 @@ export type Database = {
           scope: string
           slack_team_id: string
           slack_user_id: string
-          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -83,7 +190,6 @@ export type Database = {
           scope: string
           slack_team_id: string
           slack_user_id: string
-          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -93,31 +199,6 @@ export type Database = {
           scope?: string
           slack_team_id?: string
           slack_user_id?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      slack_sync_status: {
-        Row: {
-          conversation_id: string
-          id: string
-          last_sync_at: string | null
-          last_sync_ts: string | null
-          user_id: string | null
-        }
-        Insert: {
-          conversation_id: string
-          id?: string
-          last_sync_at?: string | null
-          last_sync_ts?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          conversation_id?: string
-          id?: string
-          last_sync_at?: string | null
-          last_sync_ts?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -128,17 +209,69 @@ export type Database = {
     }
     Functions: {
       get_user_slack_channels: {
-        Args: { p_user_id: string }
+        Args: { user_uuid: string }
         Returns: {
           conversation_id: string
           conversation_name: string
           conversation_type: string
-          is_channel: boolean
-          latest_message_ts: string
-          latest_message_text: string
-          latest_message_user: string
-          message_count: number
+          last_message_text: string
+          last_message_ts: number
+          member_count: number
+          is_archived: boolean
         }[]
+      }
+      get_user_slack_info: {
+        Args: { p_user_id: string }
+        Returns: {
+          slack_team_id: string
+          slack_user_id: string
+          access_token: string
+          scope: string
+        }[]
+      }
+      get_user_slack_mentions: {
+        Args: { p_user_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          conversation_id: string
+          conversation_name: string
+          conversation_type: string
+          is_channel: boolean
+          message_ts: string
+          message_text: string
+          mentioned_by_user_id: string
+          mentioned_by_username: string
+          permalink: string
+          slack_created_at: string
+        }[]
+      }
+      get_user_slack_mentions_with_users: {
+        Args: { p_user_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          conversation_id: string
+          conversation_name: string
+          conversation_type: string
+          is_channel: boolean
+          message_ts: string
+          message_text: string
+          mentioned_by_user_id: string
+          mentioned_by_username: string
+          permalink: string
+          slack_created_at: string
+        }[]
+      }
+      get_user_slack_team_info: {
+        Args: { p_user_id: string }
+        Returns: {
+          slack_team_id: string
+          slack_user_id: string
+          team_name: string
+        }[]
+      }
+      has_slack_connection: {
+        Args: { p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
