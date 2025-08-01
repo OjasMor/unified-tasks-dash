@@ -117,7 +117,7 @@ serve(async (req) => {
       // Generate OAuth URL for Slack
       const clientId = Deno.env.get('SLACK_CLIENT_ID');
       const redirectUri = Deno.env.get('SLACK_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/slack-oauth`;
-      const scopes = 'search:read,users:read,channels:read,groups:read,im:read,mpim:read';
+      const scopes = 'search:read,users:read,channels:read,groups:read,channels:history,groups:history';
       
       console.log('🔧 OAuth configuration:', { 
         clientId: clientId ? '***' : 'MISSING', 
