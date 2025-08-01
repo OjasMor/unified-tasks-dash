@@ -400,6 +400,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_jira_issues: {
+        Args: { p_user_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          issue_key: string
+          summary: string
+          status_name: string
+          priority_name: string
+          assignee_display_name: string
+          project_name: string
+          due_date: string
+          issue_url: string
+          updated_at_jira: string
+        }[]
+      }
       get_user_slack_channels: {
         Args: { user_uuid: string }
         Returns: {
