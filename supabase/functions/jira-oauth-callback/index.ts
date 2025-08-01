@@ -45,8 +45,23 @@ serve(async (req) => {
   }
 
   try {
-    const { action, code, state } = await req.json();
+    // Parse request data - handle both JSON body and query parameters
+    let action, code, state;
     
+    if (req.method === 'GET') {
+      // Handle OAuth redirect from Jira (GET request with query params)
+      const url = new URL(req.url);
+      code = url.searchParams.get('code');
+      state = url.searchParams.get('state');
+      action = 'oauth_callback';
+    } else {
+      // Handle JSON requests from frontend
+      const body = await req.json();
+      action = body.action;
+      code = body.code;
+      state = body.state;
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const jiraClientId = Deno.env.get('JIRA_CLIENT_ID')!;
