@@ -18,6 +18,12 @@ interface ChatBotProps {
     todos: any[];
     calendarEvents: any[];
     slackMentions?: any[];
+    slackData?: {
+      channels: any[];
+      messages: any[];
+      mentions: any[];
+      isConnected: boolean;
+    };
   };
 }
 
@@ -121,7 +127,13 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
         messageLength: inputValue.length,
         todosCount: dashboardContext.todos?.length || 0,
         calendarEventsCount: dashboardContext.calendarEvents?.length || 0,
-        slackMentionsCount: dashboardContext.slackMentions?.length || 0
+        slackMentionsCount: dashboardContext.slackMentions?.length || 0,
+        slackData: {
+          channelsCount: dashboardContext.slackData?.channels?.length || 0,
+          messagesCount: dashboardContext.slackData?.messages?.length || 0,
+          mentionsCount: dashboardContext.slackData?.mentions?.length || 0,
+          isConnected: dashboardContext.slackData?.isConnected || false
+        }
       });
 
       const assistantMessage: Message = {

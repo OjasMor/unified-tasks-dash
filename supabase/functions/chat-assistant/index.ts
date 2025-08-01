@@ -47,6 +47,12 @@ Your role:
 - Give productivity advice based on their current workload
 - Be concise and professional
 
+Slack Information Available:
+- Channels: ${context?.slackData?.channels?.length || 0} channels
+- Messages: ${context?.slackData?.messages?.length || 0} recent messages
+- Mentions: ${context?.slackData?.mentions?.length || 0} mentions
+- Connection Status: ${context?.slackData?.isConnected ? 'Connected' : 'Not Connected'}
+
 You can only provide information and analysis - you cannot edit or modify anything.`;
 
     console.log('📝 System prompt length:', systemPrompt.length);

@@ -54,6 +54,17 @@ const Index = () => {
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [slackMentions, setSlackMentions] = useState<SlackMention[]>([]);
+  const [slackData, setSlackData] = useState<{
+    channels: any[];
+    messages: any[];
+    mentions: SlackMention[];
+    isConnected: boolean;
+  }>({
+    channels: [],
+    messages: [],
+    mentions: [],
+    isConnected: false
+  });
   const { toast } = useToast();
 
   const [authLoading, setAuthLoading] = useState(false);
@@ -62,6 +73,16 @@ const Index = () => {
   useEffect(() => {
     console.log('📊 Slack mentions updated:', slackMentions.length);
   }, [slackMentions]);
+
+  // Debug logging for Slack data updates
+  useEffect(() => {
+    console.log('📊 Slack data updated:', {
+      channelsCount: slackData.channels.length,
+      messagesCount: slackData.messages.length,
+      mentionsCount: slackData.mentions.length,
+      isConnected: slackData.isConnected
+    });
+  }, [slackData]);
 
   // Check for calendar access and fetch events when user is authenticated
   useEffect(() => {
@@ -261,7 +282,10 @@ const Index = () => {
           
           {/* Slack Column - 30% on large screens */}
           <div className="lg:col-span-3">
-            <SlackColumn onMentionsUpdate={setSlackMentions} />
+            <SlackColumn 
+              onMentionsUpdate={setSlackMentions} 
+              onSlackDataUpdate={setSlackData}
+            />
           </div>
         </div>
       </main>
@@ -270,7 +294,8 @@ const Index = () => {
         dashboardContext={{
           todos,
           calendarEvents: isGoogleConnected ? calendarEvents : [],
-          slackMentions: slackMentions
+          slackMentions: slackMentions,
+          slackData: slackData
         }}
       />
     </div>

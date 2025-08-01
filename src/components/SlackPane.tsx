@@ -41,9 +41,15 @@ interface SlackMention {
 
 interface SlackPaneProps {
   onMentionsUpdate?: (mentions: SlackMention[]) => void;
+  onSlackDataUpdate?: (slackData: {
+    channels: SlackChannel[];
+    messages: SlackMessage[];
+    mentions: SlackMention[];
+    isConnected: boolean;
+  }) => void;
 }
 
-export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
+export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProps) {
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [channels, setChannels] = useState<SlackChannel[]>([]);
@@ -59,6 +65,18 @@ export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
       checkSlackConnection();
     }
   }, [user]);
+
+  // Notify parent component when any Slack data changes
+  useEffect(() => {
+    if (onSlackDataUpdate) {
+      onSlackDataUpdate({
+        channels,
+        messages,
+        mentions,
+        isConnected
+      });
+    }
+  }, [channels, messages, mentions, isConnected, onSlackDataUpdate]);
 
   // Fetch mentions when connected and notify parent component
   useEffect(() => {

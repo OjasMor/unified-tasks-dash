@@ -16,9 +16,15 @@ interface SlackMention {
 
 interface SlackColumnProps {
   onMentionsUpdate?: (mentions: SlackMention[]) => void;
+  onSlackDataUpdate?: (slackData: {
+    channels: any[];
+    messages: any[];
+    mentions: SlackMention[];
+    isConnected: boolean;
+  }) => void;
 }
 
 // Legacy component - replaced by SlackPane
-export function SlackColumn({ onMentionsUpdate }: SlackColumnProps) {
-  return <SlackPane onMentionsUpdate={onMentionsUpdate} />;
+export function SlackColumn({ onMentionsUpdate, onSlackDataUpdate }: SlackColumnProps) {
+  return <SlackPane onMentionsUpdate={onMentionsUpdate} onSlackDataUpdate={onSlackDataUpdate} />;
 }
