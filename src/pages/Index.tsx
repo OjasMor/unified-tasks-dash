@@ -301,6 +301,7 @@ const Index = () => {
           
           slackData: slackData
         }}
+        onAddTask={handleAddTodo}
       />
     </div>
   );

@@ -26,6 +26,7 @@ interface ChatBotProps {
       isConnected: boolean;
     };
   };
+  onAddTask?: (task: { title: string; description?: string; deadline?: Date }) => void;
 }
 
 const formatMessage = (text: string) => {
@@ -78,7 +79,7 @@ const formatMessage = (text: string) => {
   });
 };
 
-export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
+export const ChatBot = ({ dashboardContext, onAddTask }: ChatBotProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -120,7 +121,10 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
       const { data, error } = await supabase.functions.invoke('chat-assistant', {
         body: {
           message: messageToSend,
-          context: dashboardContext
+          context: dashboardContext,
+          capabilities: {
+            canAddTask: !!onAddTask
+          }
         }
       });
 
@@ -138,6 +142,11 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
           isConnected: dashboardContext.slackData?.isConnected || false
         }
       });
+
+      // Handle task creation if requested by assistant
+      if (data.taskToCreate && onAddTask) {
+        onAddTask(data.taskToCreate);
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),

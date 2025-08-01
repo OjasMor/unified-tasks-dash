@@ -18,11 +18,12 @@ serve(async (req) => {
 
   try {
     console.log('📥 Parsing request body...');
-    const { message, context } = await req.json();
+    const { message, context, capabilities } = await req.json();
     console.log('📥 Request payload:', { 
       messageLength: message?.length || 0, 
       hasContext: !!context,
-      contextKeys: context ? Object.keys(context) : []
+      contextKeys: context ? Object.keys(context) : [],
+      capabilities
     });
 
     console.log('🔧 Checking OpenAI API key...');
@@ -46,6 +47,7 @@ Your role:
 - Answer questions about what they see on screen
 - Give productivity advice based on their current workload
 - Be concise and professional
+${capabilities?.canAddTask ? '- Create tasks when requested by the user' : ''}
 
 Slack Information Available:
 - Channels: ${context?.slackData?.channels?.length || 0} channels
@@ -53,7 +55,22 @@ Slack Information Available:
 - Mentions: ${context?.slackData?.mentions?.length || 0} mentions
 - Connection Status: ${context?.slackData?.isConnected ? 'Connected' : 'Not Connected'}
 
-You can only provide information and analysis - you cannot edit or modify anything.`;
+${capabilities?.canAddTask ? `
+TASK CREATION CAPABILITY:
+When a user asks you to create a task, you can create it by responding with a specific JSON format in your message.
+To create a task, include this exact JSON structure anywhere in your response:
+
+TASK_CREATE: {"title": "Task title", "description": "Optional description", "deadline": "2025-08-10T00:00:00.000Z"}
+
+Rules for task creation:
+- Only create tasks when explicitly requested by the user
+- Always include a clear, actionable title
+- Add description if details are provided
+- Set deadline if user specifies timing (use ISO format or null)
+- Confirm the task creation in your response text
+
+Example: "I'll create that task for you. TASK_CREATE: {"title": "Review quarterly budget", "description": "Go through Q4 budget proposal", "deadline": null}"
+` : 'You can only provide information and analysis - you cannot edit or modify anything.'}`;
 
     console.log('📝 System prompt length:', systemPrompt.length);
     console.log('🌐 Calling OpenAI API...');
@@ -93,7 +110,28 @@ You can only provide information and analysis - you cannot edit or modify anythi
     const assistantMessage = data.choices[0].message.content;
     console.log('✅ Assistant message generated, length:', assistantMessage.length);
 
-    return new Response(JSON.stringify({ message: assistantMessage }), {
+    // Check if the assistant wants to create a task
+    let taskToCreate = null;
+    let cleanMessage = assistantMessage;
+    
+    if (capabilities?.canAddTask) {
+      const taskMatch = assistantMessage.match(/TASK_CREATE:\s*({[^}]+})/);
+      if (taskMatch) {
+        try {
+          taskToCreate = JSON.parse(taskMatch[1]);
+          // Remove the TASK_CREATE JSON from the message
+          cleanMessage = assistantMessage.replace(/TASK_CREATE:\s*{[^}]+}/, '').trim();
+          console.log('📝 Task creation requested:', taskToCreate);
+        } catch (error) {
+          console.error('❌ Failed to parse task JSON:', error);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      message: cleanMessage,
+      taskToCreate 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

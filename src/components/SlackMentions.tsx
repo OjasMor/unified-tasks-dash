@@ -134,15 +134,6 @@ export function SlackMentions({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Recent Mentions</h3>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            className="text-xs"
-          >
-            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            Loading...
-          </Button>
         </div>
         <div className="h-64 flex items-center justify-center">
           <div className="text-center space-y-4">
@@ -160,20 +151,6 @@ export function SlackMentions({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Recent Mentions</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refreshMentions}
-          disabled={isRefreshing}
-          className="text-xs"
-        >
-          {isRefreshing ? (
-            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          ) : (
-            <RefreshCw className="h-3 w-3 mr-1" />
-          )}
-          Refresh
-        </Button>
       </div>
 
       {mentions.length > 0 ? (
