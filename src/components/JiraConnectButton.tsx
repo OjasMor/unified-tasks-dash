@@ -53,7 +53,11 @@ export const JiraConnectButton = ({ onConnectionSuccess }: JiraConnectButtonProp
               title: "Jira Connected Successfully",
               description: `Synced ${fetchData.issuesCount} issues from your Jira workspace.`,
             });
+            
+            // Call onConnectionSuccess first, then clean up
             onConnectionSuccess();
+            setIsConnecting(false);
+            window.removeEventListener('message', handleMessage);
           } catch (err) {
             console.error('Error completing Jira connection:', err);
             toast({
@@ -61,7 +65,6 @@ export const JiraConnectButton = ({ onConnectionSuccess }: JiraConnectButtonProp
               description: "Failed to complete Jira connection. Please try again.",
               variant: "destructive",
             });
-          } finally {
             setIsConnecting(false);
             window.removeEventListener('message', handleMessage);
           }
