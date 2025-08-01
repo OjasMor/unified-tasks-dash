@@ -55,6 +55,7 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
   const [channels, setChannels] = useState<SlackChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<SlackChannel | null>(null);
   const [messages, setMessages] = useState<SlackMessage[]>([]);
+  const [allChannelMessages, setAllChannelMessages] = useState<Record<string, SlackMessage[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [mentions, setMentions] = useState<SlackMention[]>([]);
@@ -69,14 +70,16 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
   // Notify parent component when any Slack data changes
   useEffect(() => {
     if (onSlackDataUpdate) {
+      // Aggregate all messages from all channels
+      const allMessages = Object.values(allChannelMessages).flat();
       onSlackDataUpdate({
         channels,
-        messages,
+        messages: allMessages,
         mentions,
         isConnected
       });
     }
-  }, [channels, messages, mentions, isConnected, onSlackDataUpdate]);
+  }, [channels, allChannelMessages, mentions, isConnected, onSlackDataUpdate]);
 
   // Fetch mentions when connected and notify parent component
   useEffect(() => {
@@ -193,6 +196,9 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
       })) || [];
 
       setChannels(slackChannels);
+      
+      // Load messages for all channels on startup
+      await loadAllChannelMessages(slackChannels);
     } catch (error) {
       console.error('Error loading Slack channels:', error);
       toast({
@@ -203,53 +209,111 @@ export function SlackPane({ onMentionsUpdate, onSlackDataUpdate }: SlackPaneProp
     }
   };
 
+  const loadAllChannelMessages = async (channelsToLoad: SlackChannel[]) => {
+    const messagePromises = channelsToLoad.map(async (channel) => {
+      try {
+        const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'fetch_messages',
+            userId: user?.id || 'test-user',
+            channelId: channel.id
+          })
+        });
+
+        if (!response.ok) {
+          console.error(`Failed to load messages for channel ${channel.name}`);
+          return { channelId: channel.id, messages: [] };
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+          console.error(`Error loading messages for channel ${channel.name}:`, data.error);
+          return { channelId: channel.id, messages: [] };
+        }
+
+        const slackMessages = data.messages?.map((message: any) => ({
+          id: message.id,
+          timestamp: message.slack_created_at || new Date(parseFloat(message.message_ts) * 1000).toISOString(),
+          text: message.text,
+          username: message.username || 'Unknown User',
+          user_image: message.user_image || ''
+        })) || [];
+
+        return { channelId: channel.id, messages: slackMessages };
+      } catch (error) {
+        console.error(`Error loading messages for channel ${channel.name}:`, error);
+        return { channelId: channel.id, messages: [] };
+      }
+    });
+
+    const results = await Promise.all(messagePromises);
+    const messagesMap: Record<string, SlackMessage[]> = {};
+    
+    results.forEach(({ channelId, messages }) => {
+      messagesMap[channelId] = messages;
+    });
+
+    setAllChannelMessages(messagesMap);
+  };
+
   const loadMessages = async (channel: SlackChannel) => {
-    try {
-      setIsLoadingMessages(true);
-      setSelectedChannel(channel);
+    setSelectedChannel(channel);
+    // Use pre-loaded messages if available, otherwise load fresh
+    if (allChannelMessages[channel.id]) {
+      setMessages(allChannelMessages[channel.id]);
+    } else {
+      try {
+        setIsLoadingMessages(true);
 
-      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'fetch_messages',
-          userId: user?.id || 'test-user',
-          channelId: channel.id
-        })
-      });
+        const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'fetch_messages',
+            userId: user?.id || 'test-user',
+            channelId: channel.id
+          })
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const slackMessages = data.messages?.map((message: any) => ({
+          id: message.id,
+          timestamp: message.slack_created_at || new Date(parseFloat(message.message_ts) * 1000).toISOString(),
+          text: message.text,
+          username: message.username || 'Unknown User',
+          user_image: message.user_image || ''
+        })) || [];
+
+        setMessages(slackMessages);
+        // Cache the messages
+        setAllChannelMessages(prev => ({ ...prev, [channel.id]: slackMessages }));
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        toast({
+          title: "Error Loading Messages",
+          description: error instanceof Error ? error.message : "Failed to load messages",
+          variant: "destructive",
+        });
+        setMessages([]);
+      } finally {
+        setIsLoadingMessages(false);
       }
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      // Convert the messages data to match our interface
-      const slackMessages = data.messages?.map((message: any) => ({
-        id: message.id,
-        timestamp: message.slack_created_at || new Date(parseFloat(message.message_ts) * 1000).toISOString(),
-        text: message.text,
-        username: message.username || 'Unknown User',
-        user_image: message.user_image || ''
-      })) || [];
-
-      setMessages(slackMessages);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      toast({
-        title: "Error Loading Messages",
-        description: error instanceof Error ? error.message : "Failed to load messages",
-        variant: "destructive",
-      });
-      setMessages([]);
-    } finally {
-      setIsLoadingMessages(false);
     }
   };
 
