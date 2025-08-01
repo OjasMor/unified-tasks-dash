@@ -56,20 +56,29 @@ Slack Information Available:
 - Connection Status: ${context?.slackData?.isConnected ? 'Connected' : 'Not Connected'}
 
 ${capabilities?.canAddTask ? `
-TASK CREATION CAPABILITY:
-When a user asks you to create a task, you can create it by responding with a specific JSON format in your message.
-To create a task, include this exact JSON structure anywhere in your response:
+SMART TASK CREATION CAPABILITY:
+When a user asks you to create a task, use common sense to extract all necessary information from their message. 
+You can create it by responding with a specific JSON format in your message:
 
 TASK_CREATE: {"title": "Task title", "description": "Optional description", "deadline": "2025-08-10T00:00:00.000Z"}
 
-Rules for task creation:
-- Only create tasks when explicitly requested by the user
-- Always include a clear, actionable title
-- Add description if details are provided
-- Set deadline if user specifies timing (use ISO format or null)
-- Confirm the task creation in your response text
+INTELLIGENT EXTRACTION RULES:
+- Use common sense to infer a clear, actionable title from their request
+- Extract or infer description from context and details they provide
+- Smartly determine deadlines from time expressions like "tomorrow", "next week", "by Friday", "end of month"
+- Current date context: ${new Date().toISOString().split('T')[0]} (use this to calculate relative dates)
+- For "today" use current date, "tomorrow" add 1 day, "next week" add 7 days, etc.
+- If user says "urgent" or "ASAP", set deadline to tomorrow
+- If no timing mentioned, set deadline to null
+- Only ask for clarification if the task request is completely unclear or vague
 
-Example: "I'll create that task for you. TASK_CREATE: {"title": "Review quarterly budget", "description": "Go through Q4 budget proposal", "deadline": null}"
+EXAMPLES:
+- "Create a task to call John tomorrow" → title: "Call John", deadline: tomorrow's date
+- "I need to prepare for the client meeting next Friday" → title: "Prepare for client meeting", deadline: next Friday
+- "Remind me to review the budget by end of week" → title: "Review budget", deadline: end of this week
+- "Add task finish project proposal urgent" → title: "Finish project proposal", deadline: tomorrow (urgent = ASAP)
+
+Always confirm the task creation and show what you understood.
 ` : 'You can only provide information and analysis - you cannot edit or modify anything.'}`;
 
     console.log('📝 System prompt length:', systemPrompt.length);
