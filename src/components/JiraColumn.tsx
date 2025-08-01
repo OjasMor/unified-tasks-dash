@@ -160,26 +160,32 @@ export const JiraColumn = ({ onJiraDataUpdate }: JiraColumnProps) => {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <ExternalLink className="h-5 w-5" />
-            Jira Issues
+            My Assigned Issues
           </CardTitle>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={handleRefresh}
             disabled={isRefreshing}
+            title="Sync with Jira"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
+        {issues.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {issues.length} active issue{issues.length !== 1 ? 's' : ''} assigned to you
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
         {issues.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <ExternalLink className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No issues found</p>
+              <p className="text-muted-foreground">No assigned issues</p>
               <p className="text-sm text-muted-foreground/60">
-                Issues assigned to you will appear here
+                Your current Jira assignments will appear here
               </p>
             </div>
           </div>
