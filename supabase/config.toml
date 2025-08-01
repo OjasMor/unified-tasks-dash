@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.jira-assigned-issues]
 verify_jwt = false
+
+[functions.jira-all-issues]
+verify_jwt = false

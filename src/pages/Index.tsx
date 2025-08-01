@@ -4,6 +4,7 @@ import { ToDoColumn } from "@/components/ToDoColumn";
 import { CalendarColumn } from "@/components/CalendarColumn";
 import { SlackColumn } from "@/components/SlackColumn";
 import { JiraAssignedWidget } from "@/components/JiraAssignedWidget";
+import { JiraAllIssuesWidget } from "@/components/JiraAllIssuesWidget";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ToDo } from "@/components/ToDoCard";
@@ -285,6 +286,10 @@ const Index = () => {
           />
 
           <JiraAssignedWidget />
+        </div>
+        
+        <div className="mt-6">
+          <JiraAllIssuesWidget />
         </div>
       </main>
       
