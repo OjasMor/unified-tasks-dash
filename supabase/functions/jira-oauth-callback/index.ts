@@ -68,6 +68,15 @@ serve(async (req) => {
     const jiraClientSecret = Deno.env.get('JIRA_CLIENT_SECRET')!;
     const jiraRedirectUri = Deno.env.get('JIRA_REDIRECT_URI')!;
 
+    // Debug logging to see what redirect URI is being used
+    console.log('DEBUG: JIRA_REDIRECT_URI environment variable:', jiraRedirectUri);
+    console.log('DEBUG: All environment variables:', {
+      JIRA_CLIENT_ID: jiraClientId ? 'SET' : 'NOT SET',
+      JIRA_CLIENT_SECRET: jiraClientSecret ? 'SET' : 'NOT SET', 
+      JIRA_REDIRECT_URI: jiraRedirectUri,
+      SUPABASE_URL: supabaseUrl ? 'SET' : 'NOT SET'
+    });
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (action === 'oauth_redirect') {
@@ -80,6 +89,9 @@ serve(async (req) => {
         `state=${state}&` +
         `response_type=code&` +
         `prompt=consent`;
+
+      console.log('DEBUG: Generated OAuth URL:', authUrl);
+      console.log('DEBUG: Encoded redirect URI in URL:', encodeURIComponent(jiraRedirectUri));
 
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
