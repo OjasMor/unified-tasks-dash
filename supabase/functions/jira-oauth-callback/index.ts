@@ -45,22 +45,9 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request data - handle both JSON body and query parameters
-    let action, code, state;
-    
-    if (req.method === 'GET') {
-      // Handle OAuth redirect from Jira (GET request with query params)
-      const url = new URL(req.url);
-      code = url.searchParams.get('code');
-      state = url.searchParams.get('state');
-      action = 'oauth_callback';
-    } else {
-      // Handle JSON requests from frontend
-      const body = await req.json();
-      action = body.action;
-      code = body.code;
-      state = body.state;
-    }
+    // Parse request data from JSON body only (no GET request handling)
+    const body = await req.json();
+    const { action, code, state, tokenId } = body;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -174,9 +161,7 @@ serve(async (req) => {
         throw new Error('Failed to get user');
       }
 
-      const { tokenId } = req.method === 'GET' ? 
-        Object.fromEntries(new URL(req.url).searchParams) : 
-        await req.json();
+      const { tokenId } = body;
 
       if (!tokenId) {
         throw new Error('Token ID is required');
