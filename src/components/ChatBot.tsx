@@ -254,7 +254,7 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleSendMessage("Give me a high level and detailed summary of my day including tasks pending, done, calendar invites, and slack summary", "Summarize my day")}
+                onClick={() => handleSendMessage("Give me a high level and detailed summary of my day including tasks pending, done, calendar invites, and slack summary", "Summary My Day")}
                 disabled={isLoading}
                 className="flex-1 text-xs"
               >
