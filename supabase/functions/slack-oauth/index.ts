@@ -42,28 +42,6 @@ interface SlackUserInfo {
   error?: string;
 }
 
-interface SlackOAuthResponse {
-  ok: boolean;
-  access_token?: string;
-  scope?: string;
-  user_id?: string;
-  team_id?: string;
-  team_name?: string;
-  error?: string;
-}
-
-interface SlackChannelHistoryResponse {
-  ok: boolean;
-  messages?: Array<{
-    type: string;
-    user: string;
-    text: string;
-    ts: string;
-    permalink?: string;
-  }>;
-  error?: string;
-}
-
 interface SlackChannelsResponse {
   ok: boolean;
   channels?: Array<{
@@ -89,8 +67,20 @@ interface SlackChannelsResponse {
   error?: string;
 }
 
+interface SlackChannelHistoryResponse {
+  ok: boolean;
+  messages?: Array<{
+    type: string;
+    user: string;
+    text: string;
+    ts: string;
+    permalink?: string;
+  }>;
+  error?: string;
+}
+
 serve(async (req) => {
-  console.log('🚀 Slack OAuth Edge Function called');
+  console.log('🚀 Slack Bot Token Edge Function called');
   console.log('📝 Request method:', req.method);
   console.log('📝 Request URL:', req.url);
 
@@ -108,201 +98,36 @@ serve(async (req) => {
     )
     console.log('✅ Supabase client created');
 
-    const { action, userId, code, state, channelId } = await req.json()
-    console.log('📥 Request payload:', { action, userId, channelId, hasCode: !!code, hasState: !!state });
+    const { action, userId, channelId } = await req.json()
+    console.log('📥 Request payload:', { action, userId, channelId });
 
-    if (action === 'initiate_oauth') {
-      console.log('🔄 Initiating OAuth flow for user:', userId);
-      
-      // Generate OAuth URL for Slack
-      const clientId = Deno.env.get('SLACK_CLIENT_ID');
-      const redirectUri = Deno.env.get('SLACK_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/slack-oauth`;
-      const scopes = 'search:read,users:read,channels:read,channels:history';
-      
-      console.log('🔧 OAuth configuration:', { 
-        clientId: clientId ? '***' : 'MISSING', 
-        redirectUri, 
-        scopes 
-      });
-      
-      // Check if required environment variables are set
-      if (!clientId) {
-        console.error('❌ SLACK_CLIENT_ID environment variable is not set');
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Slack OAuth is not properly configured. Please contact the administrator.' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500 
-          }
-        )
-      }
-      
-      const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${userId}`;
-      
-      console.log('✅ OAuth URL generated:', oauthUrl);
-      
+    // Get the bot token from environment variables
+    const botToken = Deno.env.get('SLACK_BOT_TOKEN');
+    
+    if (!botToken) {
+      console.error('❌ SLACK_BOT_TOKEN environment variable is not set');
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: 'OAuth URL generated',
-          oauth_url: oauthUrl
+          success: false, 
+          error: 'Slack bot token is not configured. Please contact the administrator.' 
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      )
-    }
-
-    if (action === 'handle_callback') {
-      console.log('🔄 Handling OAuth callback');
-      
-      // Handle OAuth callback from Slack
-      if (!code || !state) {
-        console.error('❌ Missing required parameters:', { hasCode: !!code, hasState: !!state });
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Missing code or state parameter' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400 
-          }
-        )
-      }
-
-      console.log('🔧 Exchanging code for access token...');
-      const clientId = Deno.env.get('SLACK_CLIENT_ID');
-      const clientSecret = Deno.env.get('SLACK_CLIENT_SECRET');
-      const redirectUri = Deno.env.get('SLACK_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/slack-oauth`;
-
-      console.log('🔧 Token exchange configuration:', { 
-        clientId: clientId ? '***' : 'MISSING', 
-        clientSecret: clientSecret ? '***' : 'MISSING', 
-        redirectUri 
-      });
-
-      // Exchange code for access token
-      const tokenResponse = await fetch('https://slack.com/api/oauth.v2.access', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: clientId!,
-          client_secret: clientSecret!,
-          code: code,
-          redirect_uri: redirectUri
-        })
-      });
-
-      const tokenData: SlackOAuthResponse = await tokenResponse.json();
-      console.log('📥 Slack OAuth response:', { 
-        ok: tokenData.ok, 
-        hasAccessToken: !!tokenData.access_token,
-        teamId: tokenData.team_id,
-        userId: tokenData.user_id,
-        error: tokenData.error 
-      });
-
-      if (!tokenData.ok || !tokenData.access_token) {
-        console.error('❌ Slack OAuth failed:', tokenData.error);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: `Slack OAuth error: ${tokenData.error}` 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400 
-          }
-        )
-      }
-
-      console.log('💾 Storing tokens in database...');
-      // Store the tokens in database
-      const { error: insertError } = await supabaseClient
-        .from('slack_oauth_tokens')
-        .upsert({
-          user_id: state, // state contains the user ID
-          slack_team_id: tokenData.team_id!,
-          slack_user_id: tokenData.user_id!,
-          access_token: tokenData.access_token,
-          scope: tokenData.scope || '',
-          installed_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,slack_team_id'
-        });
-
-      if (insertError) {
-        console.error('❌ Error storing tokens:', insertError);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Failed to store Slack tokens' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500 
-          }
-        )
-      }
-
-      console.log('✅ Tokens stored successfully');
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Slack connected successfully',
-          team_id: tokenData.team_id,
-          team_name: tokenData.team_name
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
+          status: 500 
         }
       )
     }
 
     if (action === 'fetch_channels') {
-      console.log('🔄 Fetching channels for user:', userId);
+      console.log('🔄 Fetching channels using bot token');
       
-      // Get user's Slack tokens
-      const { data: slackInfo, error: slackError } = await supabaseClient
-        .from('slack_oauth_tokens')
-        .select('access_token, slack_user_id, slack_team_id')
-        .eq('user_id', userId)
-        .single()
-
-      if (slackError || !slackInfo) {
-        console.error('❌ No Slack connection found for user:', userId);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'No Slack connection found. Please connect your Slack account first.' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400 
-          }
-        )
-      }
-
-      console.log('✅ Found Slack connection for user:', { 
-        slackUserId: slackInfo.slack_user_id, 
-        teamId: slackInfo.slack_team_id 
-      });
-
-      // Fetch channels from Slack API
+      // Fetch channels from Slack API using bot token
       const channelsUrl = `https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=1000`;
       console.log('🌐 Fetching channels from Slack API:', channelsUrl);
       
       const channelsResponse = await fetch(channelsUrl, {
         headers: {
-          'Authorization': `Bearer ${slackInfo.access_token}`,
+          'Authorization': `Bearer ${botToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -334,7 +159,7 @@ serve(async (req) => {
       // Store channels in database
       const channelsToInsert = channels.map(channel => ({
         user_id: userId,
-        slack_team_id: slackInfo.slack_team_id,
+        slack_team_id: 'workspace', // Using a generic team ID since we're using bot token
         conversation_id: channel.id,
         conversation_type: channel.is_private ? 'private_channel' : 'public_channel',
         conversation_name: channel.name,
@@ -377,41 +202,15 @@ serve(async (req) => {
     }
 
     if (action === 'fetch_messages') {
-      console.log('🔄 Fetching messages for channel:', channelId, 'user:', userId);
+      console.log('🔄 Fetching messages for channel:', channelId);
       
-      // Get user's Slack tokens
-      const { data: slackInfo, error: slackError } = await supabaseClient
-        .from('slack_oauth_tokens')
-        .select('access_token, slack_user_id, slack_team_id')
-        .eq('user_id', userId)
-        .single()
-
-      if (slackError || !slackInfo) {
-        console.error('❌ No Slack connection found for user:', userId);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'No Slack connection found. Please connect your Slack account first.' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400 
-          }
-        )
-      }
-
-      console.log('✅ Found Slack connection for user:', { 
-        slackUserId: slackInfo.slack_user_id, 
-        teamId: slackInfo.slack_team_id 
-      });
-
-      // Fetch messages from Slack API for the specific channel
+      // Fetch messages from Slack API for the specific channel using bot token
       const historyUrl = `https://slack.com/api/conversations.history?channel=${channelId}&limit=50`;
       console.log('🌐 Fetching messages from Slack API:', historyUrl);
       
       const historyResponse = await fetch(historyUrl, {
         headers: {
-          'Authorization': `Bearer ${slackInfo.access_token}`,
+          'Authorization': `Bearer ${botToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -449,7 +248,7 @@ serve(async (req) => {
           // Fetch user info to get username
           const userResponse = await fetch(`https://slack.com/api/users.info?user=${message.user}`, {
             headers: {
-              'Authorization': `Bearer ${slackInfo.access_token}`,
+              'Authorization': `Bearer ${botToken}`,
               'Content-Type': 'application/json'
             }
           });
@@ -487,43 +286,18 @@ serve(async (req) => {
     }
 
     if (action === 'fetch_mentions') {
-      console.log('🔄 Fetching mentions for user:', userId);
+      console.log('🔄 Fetching mentions using bot token');
       
-      // Get user's Slack tokens
-      const { data: slackInfo, error: slackError } = await supabaseClient
-        .from('slack_oauth_tokens')
-        .select('access_token, slack_user_id, slack_team_id')
-        .eq('user_id', userId)
-        .single()
-
-      if (slackError || !slackInfo) {
-        console.error('❌ No Slack connection found for user:', userId);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'No Slack connection found. Please connect your Slack account first.' 
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400 
-          }
-        )
-      }
-
-      console.log('✅ Found Slack connection for user:', { 
-        slackUserId: slackInfo.slack_user_id, 
-        teamId: slackInfo.slack_team_id 
-      });
-
-      // Fetch mentions from Slack API
-      const searchQuery = `@${slackInfo.slack_user_id}` // Search for mentions of the user
+      // For bot token approach, we'll search for mentions of the bot or general mentions
+      // You can customize this based on your needs
+      const searchQuery = 'mention' // Search for messages containing "mention"
       const searchUrl = `https://slack.com/api/search.messages?query=${encodeURIComponent(searchQuery)}&count=50&sort=timestamp&sort_dir=desc`
       console.log('🌐 Searching for mentions:', searchQuery);
       console.log('🌐 Search URL:', searchUrl);
       
       const searchResponse = await fetch(searchUrl, {
         headers: {
-          'Authorization': `Bearer ${slackInfo.access_token}`,
+          'Authorization': `Bearer ${botToken}`,
           'Content-Type': 'application/json'
         }
       })
@@ -561,7 +335,7 @@ serve(async (req) => {
           // Fetch user info to get username
           const userResponse = await fetch(`https://slack.com/api/users.info?user=${match.user}`, {
             headers: {
-              'Authorization': `Bearer ${slackInfo.access_token}`,
+              'Authorization': `Bearer ${botToken}`,
               'Content-Type': 'application/json'
             }
           });
@@ -574,10 +348,10 @@ serve(async (req) => {
 
           return {
             user_id: userId,
-            slack_team_id: slackInfo.slack_team_id,
+            slack_team_id: 'workspace', // Using generic team ID
             conversation_id: match.channel.id,
             message_ts: match.ts,
-            mentioned_user_id: slackInfo.slack_user_id,
+            mentioned_user_id: 'bot', // Since we're using bot token
             mentioned_by_user_id: match.user,
             mentioned_by_username: username,
             message_text: match.text,

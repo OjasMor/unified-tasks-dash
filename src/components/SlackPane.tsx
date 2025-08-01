@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { SlackConnectButton } from "./SlackConnectButton";
 import { SlackMentions } from "./SlackMentions";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
 
 interface SlackChannel {
   id: string;
@@ -46,14 +45,27 @@ export function SlackPane() {
     try {
       setIsLoading(true);
       
-      // Check if user has slack_oidc provider in their auth metadata
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const hasSlackProvider = authUser?.app_metadata?.providers?.includes('slack_oidc');
-      
-      if (hasSlackProvider) {
-        setIsConnected(true);
-        // Load actual channels from Slack
-        await loadChannels();
+      // Test bot token connection by fetching channels
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'fetch_channels',
+          userId: user?.id || 'test-user'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.error) {
+          setIsConnected(true);
+          // Load actual channels from Slack
+          await loadChannels();
+        } else {
+          setIsConnected(false);
+        }
       } else {
         setIsConnected(false);
       }
@@ -71,11 +83,10 @@ export function SlackPane() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
         body: JSON.stringify({
           action: 'fetch_channels',
-          user_id: user?.id
+          userId: user?.id || 'test-user'
         })
       });
 
@@ -94,7 +105,7 @@ export function SlackPane() {
         id: channel.conversation_id,
         name: channel.conversation_name,
         latest_message: channel.last_message_text || '',
-        latest_message_ts: channel.last_message_ts ? new Date(channel.last_message_ts * 1000).toISOString() : new Date().toISOString(),
+        latest_message_ts: channel.last_message_ts ? new Date(parseFloat(channel.last_message_ts) * 1000).toISOString() : new Date().toISOString(),
         unread_count: 0,
         is_channel: channel.conversation_type === 'public_channel' || channel.conversation_type === 'private_channel'
       })) || [];
@@ -119,12 +130,11 @@ export function SlackPane() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
         body: JSON.stringify({
           action: 'fetch_messages',
-          user_id: user?.id,
-          channel_id: channel.id
+          userId: user?.id || 'test-user',
+          channelId: channel.id
         })
       });
 
@@ -140,9 +150,9 @@ export function SlackPane() {
 
       // Convert the messages data to match our interface
       const slackMessages = data.messages?.map((message: any) => ({
-        id: message.message_id,
-        timestamp: new Date(message.message_ts * 1000).toISOString(),
-        text: message.message_text,
+        id: message.id,
+        timestamp: message.slack_created_at || new Date(parseFloat(message.message_ts) * 1000).toISOString(),
+        text: message.text,
         username: message.username || 'Unknown User',
         user_image: message.user_image || ''
       })) || [];
@@ -198,13 +208,18 @@ export function SlackPane() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold text-foreground">Slack</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Slack
+          </h2>
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading...</span>
+          </div>
         </div>
-        <div className="bg-card border border-muted rounded-lg p-6 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-          <p className="text-muted-foreground">Loading Slack...</p>
+        <div className="h-64 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
     );
@@ -213,19 +228,20 @@ export function SlackPane() {
   if (!isConnected) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold text-foreground">Slack</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Slack
+          </h2>
         </div>
-        
-        <div className="bg-card border border-muted rounded-lg p-6 text-center">
-          <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-medium text-card-foreground mb-2">
-            Connect Your Slack Workspace
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            View your channels, recent messages, and mentions in one place.
-          </p>
+        <div className="text-center space-y-4 py-8">
+          <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
+          <div>
+            <h3 className="text-lg font-medium">Connect to Slack</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Connect your Slack workspace to view channels and messages
+            </p>
+          </div>
           <SlackConnectButton onSuccess={handleSlackConnect} />
         </div>
       </div>
@@ -234,65 +250,63 @@ export function SlackPane() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold text-foreground">Slack</h2>
-        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <MessageSquare className="h-5 w-5" />
+          Slack
+        </h2>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSlackConnect}
+            className="text-xs"
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="channels" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="channels" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Channels
-          </TabsTrigger>
-          <TabsTrigger value="mentions" className="flex items-center gap-2">
-            <AtSign className="h-4 w-4" />
+          <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="mentions" className="flex items-center gap-1">
+            <AtSign className="h-3 w-3" />
             Mentions
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="channels" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Channels List */}
-            <div className="space-y-3">
-              <h3 className="font-medium text-foreground">Channels & DMs</h3>
-              <ScrollArea className="h-96">
-                <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Channels</h3>
+              <ScrollArea className="h-64">
+                <div className="space-y-1">
                   {channels.map((channel) => (
                     <div
                       key={channel.id}
-                      className={`bg-card border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                         selectedChannel?.id === channel.id
-                          ? 'border-primary shadow-md'
-                          : 'border-muted'
+                          ? 'bg-accent border-accent-foreground'
+                          : 'hover:bg-accent/50'
                       }`}
                       onClick={() => loadMessages(channel)}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-card-foreground truncate">
-                          {channel.is_channel ? '#' : ''}{channel.name}
-                        </h4>
-                        <span className="text-xs text-muted-foreground">
-                          {channel.unread_count}
-                        </span>
-                      </div>
-                      
-                      {channel.latest_message && (
-                        <div className="text-xs text-muted-foreground">
-                          <span className="line-clamp-1">{channel.latest_message}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            #{channel.name}
+                          </span>
+                          {channel.is_channel && (
+                            <span className="text-xs text-muted-foreground">
+                              Channel
+                            </span>
+                          )}
                         </div>
-                      )}
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-muted-foreground">
-                          {formatTimestamp(channel.latest_message_ts)}
-                        </span>
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               copySlackLink(channel);
@@ -303,7 +317,6 @@ export function SlackPane() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               openInSlack(channel);
@@ -313,71 +326,52 @@ export function SlackPane() {
                           </Button>
                         </div>
                       </div>
+                      {channel.latest_message && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          {channel.latest_message}
+                        </p>
+                      )}
                     </div>
                   ))}
-                  
-                  {channels.length === 0 && (
-                    <div className="bg-card border rounded-lg p-6 text-center">
-                      <p className="text-muted-foreground">No channels found</p>
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </div>
 
-            {/* Messages */}
-            <div className="space-y-3">
-              <h3 className="font-medium text-foreground">
-                {selectedChannel ? `Messages in ${selectedChannel.name}` : 'Select a channel'}
-              </h3>
-              
-              {isLoadingMessages ? (
-                <div className="bg-card border rounded-lg p-6 text-center">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p className="text-muted-foreground">Loading messages...</p>
-                </div>
-              ) : selectedChannel ? (
-                <ScrollArea className="h-96">
-                  <div className="space-y-3">
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className="bg-card border border-muted rounded-lg p-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          {message.user_image ? (
-                            <img 
-                              src={message.user_image} 
-                              alt={message.username}
-                              className="w-8 h-8 rounded-full"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {message.username?.charAt(0)?.toUpperCase() || 'U'}
-                              </span>
-                            </div>
-                          )}
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-card-foreground text-sm">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Messages</h3>
+              <ScrollArea className="h-64">
+                {selectedChannel ? (
+                  <div className="space-y-2">
+                    {isLoadingMessages ? (
+                      <div className="flex items-center justify-center h-32">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                    ) : messages.length > 0 ? (
+                      messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className="p-3 rounded-lg border space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {message.user_image && (
+                                <img
+                                  src={message.user_image}
+                                  alt={message.username}
+                                  className="w-6 h-6 rounded-full"
+                                />
+                              )}
+                              <span className="text-sm font-medium">
                                 {message.username}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 {formatTimestamp(message.timestamp)}
                               </span>
                             </div>
-                            
-                            <p className="text-sm text-card-foreground break-words">
-                              {message.text}
-                            </p>
-                            
-                            <div className="flex justify-end gap-1 mt-2">
+                            <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0"
                                 onClick={() => copySlackLink(selectedChannel, message.timestamp)}
                               >
                                 <Copy className="h-3 w-3" />
@@ -385,43 +379,33 @@ export function SlackPane() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0"
                                 onClick={() => openInSlack(selectedChannel, message.timestamp)}
                               >
                                 <ExternalLink className="h-3 w-3" />
                               </Button>
                             </div>
                           </div>
+                          <p className="text-sm">{message.text}</p>
                         </div>
-                      </div>
-                    ))}
-                    
-                    {messages.length === 0 && (
-                      <div className="bg-card border rounded-lg p-6 text-center">
-                        <p className="text-muted-foreground">No messages found</p>
+                      ))
+                    ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                        No messages in this channel
                       </div>
                     )}
                   </div>
-                </ScrollArea>
-              ) : (
-                <div className="bg-card border rounded-lg p-6 text-center">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Select a channel to view messages</p>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    Select a channel to view messages
+                  </div>
+                )}
+              </ScrollArea>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="mentions" className="space-y-4">
-          {user ? (
-            <SlackMentions userId={user.id} />
-          ) : (
-            <div className="bg-card border border-muted rounded-lg p-6 text-center">
-              <AtSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Please sign in to view mentions</p>
-            </div>
-          )}
+        <TabsContent value="mentions">
+          <SlackMentions />
         </TabsContent>
       </Tabs>
     </div>

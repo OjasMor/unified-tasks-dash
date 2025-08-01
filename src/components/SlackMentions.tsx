@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { AtSign, ExternalLink, RefreshCw, Loader2, MessageSquare } from "lucide-react";
+import { AtSign, ExternalLink, RefreshCw, Loader2, MessageSquare, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SlackMention {
   id: string;
@@ -21,32 +21,46 @@ interface SlackMention {
 }
 
 interface SlackMentionsProps {
-  userId: string;
+  userId?: string;
 }
 
 export function SlackMentions({ userId }: SlackMentionsProps) {
+  const { user } = useAuth();
   const [mentions, setMentions] = useState<SlackMention[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasConnection, setHasConnection] = useState(false);
   const { toast } = useToast();
 
+  const currentUserId = userId || user?.id || 'test-user';
+
   // Check if user has Slack connection
   useEffect(() => {
     checkSlackConnection();
-  }, [userId]);
+  }, [currentUserId]);
 
   const checkSlackConnection = async () => {
     try {
-      const { data, error } = await supabase
-        .from('slack_oauth_tokens')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
+      // Test bot token connection by fetching mentions
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'fetch_mentions',
+          userId: currentUserId
+        })
+      });
 
-      if (data && !error) {
-        setHasConnection(true);
-        fetchMentions();
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.error) {
+          setHasConnection(true);
+          fetchMentions();
+        } else {
+          setHasConnection(false);
+        }
       } else {
         setHasConnection(false);
       }
@@ -65,11 +79,10 @@ export function SlackMentions({ userId }: SlackMentionsProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
         body: JSON.stringify({
           action: 'fetch_mentions',
-          userId: userId
+          userId: currentUserId
         })
       });
 
@@ -128,29 +141,19 @@ export function SlackMentions({ userId }: SlackMentionsProps) {
     navigator.clipboard.writeText(permalink);
     toast({
       title: "Link Copied",
-      description: "Slack message link copied to clipboard",
+      description: "Slack link copied to clipboard",
     });
   };
 
   if (!hasConnection) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <AtSign className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold text-foreground">Slack Mentions</h2>
-        </div>
-        
-        <div className="bg-card border border-muted rounded-lg p-6 text-center">
-          <AtSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-medium text-card-foreground mb-2">
-            Connect Slack to View Mentions
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Connect your Slack account to see when others mention you.
+      <div className="text-center space-y-4 py-8">
+        <AtSign className="h-12 w-12 mx-auto text-muted-foreground" />
+        <div>
+          <h3 className="text-lg font-medium">No Slack Connection</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Connect to Slack to view your mentions
           </p>
-          <Button variant="outline" onClick={checkSlackConnection}>
-            Check Connection
-          </Button>
         </div>
       </div>
     );
@@ -159,100 +162,88 @@ export function SlackMentions({ userId }: SlackMentionsProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AtSign className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold text-foreground">Slack Mentions</h2>
-          <Badge variant="secondary" className="text-xs">
-            {mentions.length} mentions
-          </Badge>
-        </div>
-        
+        <h3 className="text-sm font-medium">Recent Mentions</h3>
         <Button
           variant="outline"
           size="sm"
           onClick={refreshMentions}
           disabled={isRefreshing}
-          className="gap-2"
+          className="text-xs"
         >
           {isRefreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
           ) : (
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3 w-3 mr-1" />
           )}
           Refresh
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="bg-card border border-muted rounded-lg p-6 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-          <p className="text-muted-foreground">Loading mentions...</p>
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : mentions.length > 0 ? (
-        <ScrollArea className="h-96">
+        <ScrollArea className="h-64">
           <div className="space-y-3">
             {mentions.map((mention) => (
               <div
                 key={mention.id}
-                className="bg-card border border-muted rounded-lg p-4 hover:shadow-md transition-shadow"
+                className="p-4 rounded-lg border space-y-3"
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                    <AtSign className="h-4 w-4 text-primary" />
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <AtSign className="h-4 w-4 text-blue-500" />
+                    <span className="text-sm font-medium">
+                      {mention.mentioned_by_username}
+                    </span>
+                    <Badge variant="secondary" className="text-xs">
+                      {mention.conversation_type === 'private_channel' ? 'Private' : 'Public'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyPermalink(mention.permalink)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openInSlack(mention.permalink)}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <MessageSquare className="h-3 w-3" />
+                    <span>#{mention.conversation_name}</span>
+                    <span>•</span>
+                    <span>{formatTimestamp(mention.slack_created_at)}</span>
                   </div>
                   
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-medium text-card-foreground text-sm">
-                        {mention.mentioned_by_username || 'Unknown User'}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        {mention.is_channel ? '#' : ''}{mention.conversation_name}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTimestamp(mention.slack_created_at)}
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm text-card-foreground break-words mb-3">
-                      {mention.message_text}
-                    </p>
-                    
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyPermalink(mention.permalink)}
-                        className="h-8 px-2 gap-1"
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        Copy Link
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openInSlack(mention.permalink)}
-                        className="h-8 px-2 gap-1"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Open in Slack
-                      </Button>
-                    </div>
-                  </div>
+                  <p className="text-sm leading-relaxed">
+                    {mention.message_text}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </ScrollArea>
       ) : (
-        <div className="bg-card border border-muted rounded-lg p-6 text-center">
-          <AtSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-medium text-card-foreground mb-2">
-            No Recent Mentions
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            You haven't been mentioned recently. Mentions will appear here when others mention you in Slack.
-          </p>
+        <div className="text-center space-y-4 py-8">
+          <AtSign className="h-12 w-12 mx-auto text-muted-foreground" />
+          <div>
+            <h3 className="text-lg font-medium">No Mentions Found</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              You haven't been mentioned recently
+            </p>
+          </div>
         </div>
       )}
     </div>
