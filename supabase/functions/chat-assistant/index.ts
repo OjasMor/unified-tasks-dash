@@ -71,6 +71,7 @@ INTELLIGENT EXTRACTION RULES:
 - If user says "urgent" or "ASAP", set deadline to tomorrow
 - If no timing mentioned, set deadline to null
 - Only ask for clarification if the task request is completely unclear or vague
+- IMPORTANT: Always create the task immediately when requested - don't ask for confirmation or permission
 
 EXAMPLES:
 - "Create a task to call John tomorrow" → title: "Call John", deadline: tomorrow's date
@@ -78,7 +79,7 @@ EXAMPLES:
 - "Remind me to review the budget by end of week" → title: "Review budget", deadline: end of this week
 - "Add task finish project proposal urgent" → title: "Finish project proposal", deadline: tomorrow (urgent = ASAP)
 
-Always confirm the task creation and show what you understood.
+Always immediately create the task and confirm what was created with a brief, positive message.
 ` : 'You can only provide information and analysis - you cannot edit or modify anything.'}`;
 
     console.log('📝 System prompt length:', systemPrompt.length);
