@@ -117,6 +117,13 @@ export const ChatBot = ({ dashboardContext }: ChatBotProps) => {
 
       if (error) throw error;
 
+      console.log('📤 Chat context sent:', {
+        messageLength: inputValue.length,
+        todosCount: dashboardContext.todos?.length || 0,
+        calendarEventsCount: dashboardContext.calendarEvents?.length || 0,
+        slackMentionsCount: dashboardContext.slackMentions?.length || 0
+      });
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: data.message,

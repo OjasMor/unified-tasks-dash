@@ -51,6 +51,7 @@ export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
   const [messages, setMessages] = useState<SlackMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [mentions, setMentions] = useState<SlackMention[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,6 +59,51 @@ export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
       checkSlackConnection();
     }
   }, [user]);
+
+  // Fetch mentions when connected and notify parent component
+  useEffect(() => {
+    if (isConnected && onMentionsUpdate) {
+      fetchMentions();
+    }
+  }, [isConnected, onMentionsUpdate]);
+
+  // Notify parent component when mentions change
+  useEffect(() => {
+    if (onMentionsUpdate) {
+      onMentionsUpdate(mentions);
+    }
+  }, [mentions, onMentionsUpdate]);
+
+  const fetchMentions = async () => {
+    try {
+      console.log('🔄 Fetching mentions from Slack...');
+      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'fetch_mentions',
+          userId: user?.id || 'test-user'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📥 Mentions response:', result);
+        if (result.success) {
+          setMentions(result.mentions || []);
+          console.log('✅ Mentions fetched:', result.mentions?.length || 0);
+        } else {
+          console.error('❌ Failed to fetch mentions:', result.error);
+        }
+      } else {
+        console.error('❌ HTTP error fetching mentions:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching mentions:', error);
+    }
+  };
 
   const checkSlackConnection = async () => {
     try {
@@ -277,6 +323,14 @@ export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
           <Button
             variant="outline"
             size="sm"
+            onClick={fetchMentions}
+            className="text-xs"
+          >
+            Refresh Mentions
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleSlackConnect}
             className="text-xs"
           >
@@ -423,7 +477,12 @@ export function SlackPane({ onMentionsUpdate }: SlackPaneProps) {
         </TabsContent>
 
         <TabsContent value="mentions">
-          <SlackMentions onMentionsUpdate={onMentionsUpdate} />
+          <SlackMentions 
+            onMentionsUpdate={onMentionsUpdate} 
+            mentions={mentions}
+            onRefreshMentions={fetchMentions}
+            isRefreshing={false}
+          />
         </TabsContent>
       </Tabs>
     </div>

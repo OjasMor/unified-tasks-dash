@@ -23,13 +23,19 @@ interface SlackMention {
 interface SlackMentionsProps {
   userId?: string;
   onMentionsUpdate?: (mentions: SlackMention[]) => void;
+  mentions?: SlackMention[];
+  onRefreshMentions?: () => void;
+  isRefreshing?: boolean;
 }
 
-export function SlackMentions({ userId, onMentionsUpdate }: SlackMentionsProps) {
+export function SlackMentions({ 
+  userId, 
+  onMentionsUpdate, 
+  mentions = [], 
+  onRefreshMentions,
+  isRefreshing = false 
+}: SlackMentionsProps) {
   const { user } = useAuth();
-  const [mentions, setMentions] = useState<SlackMention[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasConnection, setHasConnection] = useState(false);
   const { toast } = useToast();
 
@@ -40,9 +46,9 @@ export function SlackMentions({ userId, onMentionsUpdate }: SlackMentionsProps) 
     checkSlackConnection();
   }, [currentUserId]);
 
-  // Notify parent component when mentions change
+  // Notify parent component when mentions change (if not provided as prop)
   useEffect(() => {
-    if (onMentionsUpdate) {
+    if (onMentionsUpdate && mentions.length > 0) {
       onMentionsUpdate(mentions);
     }
   }, [mentions, onMentionsUpdate]);
@@ -65,7 +71,6 @@ export function SlackMentions({ userId, onMentionsUpdate }: SlackMentionsProps) 
         const data = await response.json();
         if (!data.error) {
           setHasConnection(true);
-          fetchMentions();
         } else {
           setHasConnection(false);
         }
@@ -78,53 +83,10 @@ export function SlackMentions({ userId, onMentionsUpdate }: SlackMentionsProps) 
     }
   };
 
-  const fetchMentions = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Call the Supabase Edge Function to fetch mentions
-      const response = await fetch('https://dggmyssboghmwytvuuqq.supabase.co/functions/v1/slack-oauth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'fetch_mentions',
-          userId: currentUserId
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setMentions(result.mentions || []);
-        toast({
-          title: "Mentions Updated",
-          description: `Found ${result.count} recent mentions`,
-        });
-      } else {
-        toast({
-          title: "Error Fetching Mentions",
-          description: result.error || "Failed to fetch mentions",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching mentions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch Slack mentions",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const refreshMentions = async () => {
-    setIsRefreshing(true);
-    await fetchMentions();
-    setIsRefreshing(false);
+    if (onRefreshMentions) {
+      onRefreshMentions();
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -187,11 +149,7 @@ export function SlackMentions({ userId, onMentionsUpdate }: SlackMentionsProps) 
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-      ) : mentions.length > 0 ? (
+      {mentions.length > 0 ? (
         <ScrollArea className="h-64">
           <div className="space-y-3">
             {mentions.map((mention) => (

@@ -339,10 +339,11 @@ serve(async (req) => {
 
     if (action === 'fetch_mentions') {
       console.log('🔄 Fetching mentions using bot token');
+      
+      // Search for actual mentions using @ symbol and common mention patterns
+      // This will find messages that contain @mentions, @here, @channel, etc.
+      const searchQuery = '@here OR @channel OR @everyone OR @' // Search for various types of mentions
 
-      // For bot token approach, we'll search for mentions of the bot or general mentions
-      // You can customize this based on your needs
-      const searchQuery = 'mention' // Search for messages containing "mention"
       const searchUrl = `https://slack.com/api/search.messages?query=${encodeURIComponent(searchQuery)}&count=50&sort=timestamp&sort_dir=desc`
       console.log('🌐 Searching for mentions:', searchQuery);
       console.log('🌐 Search URL:', searchUrl);

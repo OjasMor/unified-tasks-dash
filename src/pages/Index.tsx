@@ -58,6 +58,11 @@ const Index = () => {
 
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Debug logging for mentions updates
+  useEffect(() => {
+    console.log('📊 Slack mentions updated:', slackMentions.length);
+  }, [slackMentions]);
+
   // Check for calendar access and fetch events when user is authenticated
   useEffect(() => {
     const checkCalendarAccess = async () => {
