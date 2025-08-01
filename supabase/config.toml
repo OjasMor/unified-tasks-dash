@@ -9,5 +9,5 @@ verify_jwt = false
 [functions.slack-oauth]
 verify_jwt = false
 
-[functions.jira-oauth]
+[functions.jira-oauth-callback]
 verify_jwt = false

@@ -80,7 +80,7 @@ export const JiraColumn = ({ onJiraDataUpdate }: JiraColumnProps) => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('jira-oauth', {
+      const { data, error } = await supabase.functions.invoke('jira-oauth-callback', {
         body: { action: 'fetch_issues' }
       });
 

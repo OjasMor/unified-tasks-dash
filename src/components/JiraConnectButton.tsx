@@ -16,7 +16,7 @@ export const JiraConnectButton = ({ onConnectionSuccess }: JiraConnectButtonProp
     try {
       const state = Math.random().toString(36).substring(7);
       
-      const { data, error } = await supabase.functions.invoke('jira-oauth', {
+      const { data, error } = await supabase.functions.invoke('jira-oauth-callback', {
         body: { action: 'oauth_redirect', state }
       });
 
@@ -39,7 +39,7 @@ export const JiraConnectButton = ({ onConnectionSuccess }: JiraConnectButtonProp
             // Check if connection was successful by trying to fetch issues
             setTimeout(async () => {
               try {
-                const { data: fetchData, error: fetchError } = await supabase.functions.invoke('jira-oauth', {
+                const { data: fetchData, error: fetchError } = await supabase.functions.invoke('jira-oauth-callback', {
                   body: { action: 'fetch_issues' }
                 });
                 
