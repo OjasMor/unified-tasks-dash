@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.slack-oauth]
 verify_jwt = false
+
+[functions.jira-assigned-issues]
+verify_jwt = false

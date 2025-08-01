@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { ToDoColumn } from "@/components/ToDoColumn";
 import { CalendarColumn } from "@/components/CalendarColumn";
 import { SlackColumn } from "@/components/SlackColumn";
+import { JiraAssignedWidget } from "@/components/JiraAssignedWidget";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ToDo } from "@/components/ToDoCard";
@@ -263,7 +264,7 @@ const Index = () => {
         />
       
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 lg:grid-cols-2 gap-6">
           <ToDoColumn
             todos={todos}
             onAddTodo={handleAddTodo}
@@ -282,6 +283,8 @@ const Index = () => {
             onMentionsUpdate={setSlackMentions} 
             onSlackDataUpdate={setSlackData}
           />
+
+          <JiraAssignedWidget />
         </div>
       </main>
       
